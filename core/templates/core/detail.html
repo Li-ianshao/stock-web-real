@@ -1,0 +1,41 @@
+{% extends 'core/base_detail.html' %}
+{% block content %}
+
+<h2 class="text-3xl font-bold text-indigo-700 mb-4">股票詳細資訊 - {{ symbol }}</h2>
+
+<!-- 展開／收合區塊 -->
+<div class="space-y-6">
+
+    <!-- 📄 公司描述區塊 -->
+    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+        <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+            <h3 class="text-lg font-semibold text-gray-800">📄 公司基本資料與描述</h3>
+            <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+        </div>
+        <div x-show="open" class="mt-4 text-gray-700">
+            <p>這裡是 {{ symbol }} 的公司描述與基本資料區塊。可包含：行業、市值、市盈率、ROE、配息歷史等資訊。</p>
+        </div>
+    </div>
+
+    <!-- 📈 技術圖表區塊 -->
+    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+        <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+            <h3 class="text-lg font-semibold text-gray-800">📈 技術圖表分析</h3>
+            <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+        </div>
+        <div x-show="open" class="mt-4 space-y-4">
+
+            <!-- Placeholder 圖表 -->
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📊 股價 K 線圖]</div>
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📊 成交量柱狀圖]</div>
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📈 RSI 折線圖]</div>
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📉 MACD 指標圖]</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Alpine.js for toggle -->
+<script src="https://unpkg.com/alpinejs" defer></script>
+
+{% endblock %}
