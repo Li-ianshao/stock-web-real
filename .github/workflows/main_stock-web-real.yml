@@ -73,3 +73,4 @@ jobs:
           app-name: 'stock-web-real'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_4CD4FD15ECAC45078F78C104A74C0A6F }}
+          package: .
