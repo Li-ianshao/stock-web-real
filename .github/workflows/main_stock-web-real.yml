@@ -38,7 +38,7 @@ jobs:
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
       - name: Create Django superuser (if not exists)
-        run: run: echo "from django.contrib.auth import get_user_model; import os; User = get_user_model(); User.objects.filter(username='ian').exists() or User.objects.create_superuser('ian', 'admin@example.com', '520202')" | python manage.py shell
+        run: echo "from django.contrib.auth import get_user_model; import os; User = get_user_model(); User.objects.filter(username='ian').exists() or User.objects.create_superuser('ian', 'admin@example.com', '520202')" | python manage.py shell
 
 
       - name: Zip artifact for deployment
