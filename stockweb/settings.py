@@ -87,6 +87,8 @@ DATABASES = {
     }
 }
 
+DJANGO_ADMIN_PWD = os.environ.get('EMAIL_PASSWORD')
+
 CSRF_TRUSTED_ORIGINS = [
     'https://stock-web-real-cfcydzdxg3c0hnck.centralus-01.azurewebsites.net'
 ]
