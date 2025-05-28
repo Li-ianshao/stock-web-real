@@ -134,3 +134,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOGGING_DIR, exist_ok=True)
