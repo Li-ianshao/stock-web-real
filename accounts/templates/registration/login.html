@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>登入系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-r from-blue-100 via-white to-indigo-100 flex items-center justify-center">
+
+    <div class="bg-white shadow-xl rounded-2xl p-10 w-full max-w-md animate-fade-in">
+        <h2 class="text-3xl font-bold text-center text-indigo-700 mb-6">歡迎回來 👋</h2>
+
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <p class="text-red-500 text-sm text-center">{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" onsubmit="showLoading()">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="block text-gray-700">使用者名稱</label>
+                <input type="text" name="username" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-gray-700">密碼</label>
+                <input type="password" name="password" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+            </div>
+
+            <button id="login-btn" type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition duration-200">
+                登入
+            </button>
+
+            <div id="loading" class="hidden text-center mt-4 text-gray-500 text-sm">
+                <svg class="animate-spin h-5 w-5 inline mr-2 text-indigo-500" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                登入中...
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .animate-fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+
+    <script>
+        function showLoading() {
+            document.getElementById('login-btn').disabled = true;
+            document.getElementById('login-btn').classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('loading').classList.remove('hidden');
+        }
+    </script>
+
+</body>
+</html>
