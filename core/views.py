@@ -3,19 +3,18 @@ from django.contrib.auth.decorators import login_required
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-#from stocks.utils.fetcher import fetch_stock_data
-#from stocks.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks
-#from stocks.constants import TEST_SYMBOLS
+from core.utils.fetcher import fetch_stock_data
+from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks
+from core.constants import TEST_SYMBOLS
 
 
-#raw_data  = fetch_stock_data(TEST_SYMBOLS)
+raw_data  = fetch_stock_data(TEST_SYMBOLS)
 
 
-#print(filtered_data)
 
 @login_required
 def tab_dividend_view(request):
-    filtered_data = []#filter_dividend_stocks(raw_data)
+    filtered_data = filter_dividend_stocks(raw_data)
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -31,7 +30,7 @@ def tab_dividend_view(request):
 
 @login_required
 def tab_rsi_view(request):
-    filtered_data = []#filter_rsi_alert_stocks(raw_data)
+    filtered_data = filter_rsi_alert_stocks(raw_data)
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -46,7 +45,7 @@ def tab_rsi_view(request):
 
 @login_required
 def tab_bband_view(request):
-    filtered_data = []#filter_bband_stocks(raw_data)
+    filtered_data = filter_bband_stocks(raw_data)
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -61,7 +60,7 @@ def tab_bband_view(request):
 
 @login_required
 def tab_macd_view(request):
-    filtered_data = []#filter_macd_cross_stocks(raw_data)
+    filtered_data = filter_macd_cross_stocks(raw_data)
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -76,7 +75,7 @@ def tab_macd_view(request):
 
 @login_required
 def tab_drop_view(request):
-    filtered_data = []#filter_big_drop_stocks(raw_data)
+    filtered_data = filter_big_drop_stocks(raw_data)
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
