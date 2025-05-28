@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>股票分析平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- 導覽列 -->
+    <nav class="bg-white shadow p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-indigo-600">S&P 500 技術與配息分析平台</h1>
+        <div class="text-sm text-gray-700">
+            您好，{{ request.user.username }} |
+            <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-sm text-red-500 hover:text-red-700 transition">登出</button>
+            </form>
+        </div>
+    </nav>
+
+    <!-- 頁籤按鈕區 -->
+    <div class="bg-indigo-100 p-4 flex flex-wrap justify-center space-x-2 text-sm font-medium">
+        {% with request.path as path %}
+            {% if path == '/stocks/dividend/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">高殖利率</span>
+            {% else %}
+                <a href="{% url 'tab_dividend' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">高殖利率</a>
+            {% endif %}
+
+            {% if path == '/stocks/rsi/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">RSI 警示</span>
+            {% else %}
+                <a href="{% url 'tab_rsi' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">RSI 警示</a>
+            {% endif %}
+
+            {% if path == '/stocks/bband/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">布林通道</span>
+            {% else %}
+                <a href="{% url 'tab_bband' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">布林通道</a>
+            {% endif %}
+
+            {% if path == '/stocks/macd/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">MACD 黃金交叉</span>
+            {% else %}
+                <a href="{% url 'tab_macd' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">MACD 黃金交叉</a>
+            {% endif %}
+
+            {% if path == '/stocks/drop/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">一月內跌幅超過 30%</span>
+            {% else %}
+                <a href="{% url 'tab_drop' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">一月內跌幅超過 30%</a>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- 主內容區塊 -->
+    <main class="p-4 max-w-full overflow-x-auto">
+    <table class="min-w-[1000px] w-full text-sm text-left text-gray-700">
+        <thead class="bg-indigo-100 text-gray-800">
+            <tr>
+                {% for col in column_headers %}
+                <th class="px-4 py-2 cursor-pointer select-none" onclick="sortTable({{ forloop.counter0 }})">
+                    {{ col }}
+                    <span id="arrow-{{ forloop.counter0 }}"></span>
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody id="stock-table-body">
+            {% for stock in stocks %}
+            <tr class="{% if stock.dividend == 0 %}bg-red-50{% endif %} border-b">
+                <td class="px-4 py-2 font-semibold text-blue-700 hover:underline">
+                    <a href="{% url 'stock_detail' stock.symbol %}">{{ stock.symbol }}</a>
+                </td>
+                <td class="px-4 py-2">{{ stock.close }}</td>
+                <td class="px-4 py-2 {% if stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.ex_dividend_date }}</td>
+                <td class="px-4 py-2 {% if stock.dividend == 0 or stock.dividend == '0' or stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.dividend }}</td>
+                <td class="px-4 py-2 {% if stock.dividend_ratio == 0 or stock.dividend_ratio == '0' or stock.dividend_ratio == 'N/A' %}text-gray-400{% endif %}">
+                    {{ stock.dividend_ratio }}
+                    {% if stock.dividend_ratio != 'N/A' %}
+                        %
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 {% if stock.yield == 0 or stock.yield == '0' or stock.yield == 'N/A' %}text-gray-400{% endif %}">
+                    {{ stock.yield }}%
+                </td>
+                <td class="px-4 py-2 {% if stock.daily_change|floatformat:2 < alert_change|floatformat:2 and stock.daily_change|floatformat:2 < 0 %}text-yellow-600 font-bold{% endif %}">
+                    {{ stock.price_change }}%
+                </td>
+                <td class="px-4 py-2">{{ stock.year_low }}</td>
+                <td class="px-4 py-2">{{ stock.year_high }}</td>
+                <td class="px-4 py-2 
+                    {% if stock.rsi > rsi_high_warn %}text-red-600
+                    {% elif stock.rsi > rsi_high_soft %}text-orange-500
+                    {% elif stock.rsi < rsi_low_warn %}text-red-600
+                    {% elif stock.rsi < rsi_low_soft %}text-blue-500
+                    {% endif %}">
+                    {{ stock.rsi }}
+                </td>
+                <td class="px-4 py-2 {% if stock.volume_delta > alert_volume %}bg-yellow-100{% endif %}">{{ stock.volume_delta }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</main>
+
+<!-- 🔽 表格排序功能 -->
+<script>
+    let sortOrder = 1;
+    let lastSortedColumn = -1;
+
+    function sortTable(colIndex) {
+        const table = document.getElementById("stock-table-body");
+        const rows = Array.from(table.rows);
+
+        if (lastSortedColumn === colIndex) {
+            sortOrder *= -1; // 反向排序
+        } else {
+            sortOrder = 1;
+        }
+        lastSortedColumn = colIndex;
+
+        rows.sort((a, b) => {
+            const aText = a.cells[colIndex].innerText.trim();
+            const bText = b.cells[colIndex].innerText.trim();
+
+            const aVal = parseFloat(aText.replace('%','')) || aText;
+            const bVal = parseFloat(bText.replace('%','')) || bText;
+
+            return sortOrder * (aVal > bVal ? 1 : aVal < bVal ? -1 : 0);
+        });
+
+        rows.forEach(row => table.appendChild(row));
+
+        // 重設所有箭頭
+        document.querySelectorAll('[id^=arrow-]').forEach(el => el.innerHTML = '');
+        document.getElementById(`arrow-${colIndex}`).innerHTML = sortOrder === 1 ? '↑' : '↓';
+    }
+</script>
+
+</body>
+</html>
