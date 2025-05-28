@@ -34,6 +34,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Application definition
 
 INSTALLED_APPS = [
+    'accounts',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -58,7 +59,7 @@ ROOT_URLCONF = 'stockweb.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -72,6 +73,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'stockweb.wsgi.application'
 
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'      # 成功登入後導向首頁
+LOGOUT_REDIRECT_URL = '/'     # 登出後導向首頁
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
