@@ -26,7 +26,7 @@ def tab_dividend_view(request):
         'rsi_low_warn': 30,
         'alert_volume': 100,
     }
-    return render(request, 'stocks/tab_dividend.html', context)
+    return render(request, 'core/tab_dividend.html', context)
 '''
 
 @login_required
