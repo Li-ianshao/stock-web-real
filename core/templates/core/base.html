@@ -22,31 +22,31 @@
     <!-- 頁籤按鈕區 -->
     <div class="bg-indigo-100 p-4 flex flex-wrap justify-center space-x-2 text-sm font-medium">
         {% with request.path as path %}
-            {% if path == '/stocks/dividend/' %}
+            {% if path == '/core/dividend/' %}
                 <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">高殖利率</span>
             {% else %}
                 <a href="{% url 'tab_dividend' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">高殖利率</a>
             {% endif %}
 
-            {% if path == '/stocks/rsi/' %}
+            {% if path == '/core/rsi/' %}
                 <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">RSI 警示</span>
             {% else %}
                 <a href="{% url 'tab_rsi' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">RSI 警示</a>
             {% endif %}
 
-            {% if path == '/stocks/bband/' %}
+            {% if path == '/core/bband/' %}
                 <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">布林通道</span>
             {% else %}
                 <a href="{% url 'tab_bband' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">布林通道</a>
             {% endif %}
 
-            {% if path == '/stocks/macd/' %}
+            {% if path == '/core/macd/' %}
                 <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">MACD 黃金交叉</span>
             {% else %}
                 <a href="{% url 'tab_macd' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">MACD 黃金交叉</a>
             {% endif %}
 
-            {% if path == '/stocks/drop/' %}
+            {% if path == '/core/drop/' %}
                 <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">一月內跌幅超過 30%</span>
             {% else %}
                 <a href="{% url 'tab_drop' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">一月內跌幅超過 30%</a>
