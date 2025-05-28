@@ -321,7 +321,7 @@ def filter_macd_cross_stocks(raw_data):
 
     return result
 
-def filter_big_drop_stocks(raw_data, threshold=-30):
+def filter_big_drop_stocks(raw_data, threshold=-5):
     result = []
 
     for symbol, content in raw_data.items():
