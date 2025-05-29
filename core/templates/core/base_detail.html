@@ -9,10 +9,9 @@
 <body class="bg-gray-50 min-h-screen p-6">
 
     <!-- 返回導覽列 -->
-    <button onclick="window.history.length > 1 ? history.back() : window.location.href='{% url 'tab_dividend' %}'"
-        class="text-indigo-600 hover:underline">
+    <a href="{{ previous_url }}" class="text-sm text-blue-600 hover:underline">
         &larr; 返回列表
-    </button>
+    </a>
 
 
     <!-- 內容區塊 -->
