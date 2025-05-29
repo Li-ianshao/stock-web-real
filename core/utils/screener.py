@@ -50,7 +50,7 @@ def filter_dividend_stocks(raw_data, yield_threshold=4, within_days=90):
                 continue
 
             dividend_yield = info.get('dividendYield') or 0
-            print(f"{symbol} 殖利率: {dividend_yield}")
+            #print(f"{symbol} 殖利率: {dividend_yield}")
             if dividend_yield < yield_threshold:
                 continue
 
@@ -321,7 +321,7 @@ def filter_macd_cross_stocks(raw_data):
 
     return result
 
-def filter_big_drop_stocks(raw_data, threshold=-5):
+def filter_big_drop_stocks(raw_data, threshold=-30):
     result = []
 
     for symbol, content in raw_data.items():

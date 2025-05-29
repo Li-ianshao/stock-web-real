@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('dividend/', views.tab_dividend_view, name='tab_dividend'),
+    path('clear-cache/', views.clear_cache_view, name='clear_cache'),
     path('rsi/', views.tab_rsi_view, name='tab_rsi'),
     path('bband/', views.tab_bband_view, name='tab_bband'),
     path('macd/', views.tab_macd_view, name='tab_macd'),
