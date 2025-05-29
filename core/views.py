@@ -1,10 +1,11 @@
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required 
-
+import json
+import pandas as pd
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles
-from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks, get_stock_data_by_symbol
+from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks, get_stock_data_by_symbol, calculate_bbands, calculate_rsi, calculate_macd
 from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -104,8 +105,20 @@ def stock_detail_view(request, symbol):
 
     stock_data = get_stock_data_by_symbol(symbol, raw_data)
 
+    df = stock_data['history'].copy()
+    df['Date'] = df.index.strftime('%Y-%m-%d')
+
+    # 加入各項技術指標欄位
+    df['upper_band'], df['lower_band'] = calculate_bbands(df)
+    df['rsi'] = calculate_rsi(df)
+    df['macd'], df['signal'], df['hist'] = calculate_macd(df['Close'])
+
+    df = df.where(pd.notnull(df), None)
+    price_data = json.dumps(df.to_dict(orient='records'))
+
     return render(request, 'core/detail.html', {
         'symbol': symbol,
         'previous_url': previous_url,
-        'stock_data':stock_data,
+        'summary': stock_data['info'].get('longBusinessSummary', ''),
+        'price_data': price_data
     })
