@@ -7,6 +7,8 @@ from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear
 from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks
 from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.urls import reverse
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
@@ -96,4 +98,12 @@ def tab_drop_view(request):
 
 @login_required
 def stock_detail_view(request, symbol):
-    return render(request, 'core/detail.html', {'symbol': symbol})
+    previous_url = request.META.get('HTTP_REFERER')
+    if not url_has_allowed_host_and_scheme(url=previous_url, allowed_hosts={request.get_host()}):
+        previous_url = reverse('tab_dividend')
+
+    
+    return render(request, 'core/detail.html', {
+        'symbol': symbol,
+        'previous_url': previous_url,
+    })
