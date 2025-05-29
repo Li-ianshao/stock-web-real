@@ -16,6 +16,9 @@
                 {% csrf_token %}
                 <button type="submit" class="text-sm text-red-500 hover:text-red-700 transition">登出</button>
             </form>
+            <a href="{% url 'clear_cache' %}" class="ml-4 text-sm text-yellow-600 hover:text-yellow-800 transition">
+                清除pico檔案
+            </a>
         </div>
     </nav>
 

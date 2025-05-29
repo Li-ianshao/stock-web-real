@@ -3,14 +3,20 @@ from django.contrib.auth.decorators import login_required
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from core.utils.fetcher import fetch_stock_data
+from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles
 from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks
-from core.constants import TEST_SYMBOLS
+from core.constants import load_sp500_symbols, TEST_SYMBOLS
+from django.shortcuts import redirect
 
+#print(load_sp500_symbols()) 有抓到S&P500清單
 
-raw_data  = fetch_stock_data(TEST_SYMBOLS)
+raw_data  = load_or_fetch_stock_data(load_sp500_symbols())
 
-
+@login_required
+def clear_cache_view(request):
+    print('clear_cache_view');
+    clear_all_pickles()
+    return redirect('tab_dividend')  # 或跳回首頁頁籤
 
 @login_required
 def tab_dividend_view(request):
