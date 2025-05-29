@@ -29,6 +29,19 @@ def calculate_macd(close_series, fast=12, slow=26, signal=9):
     signal_line = macd.ewm(span=signal).mean()
     return macd, signal_line
 
+
+def get_stock_data_by_symbol(symbol, raw_data):
+    """
+    根據股票代碼從 raw_data 中快速提取該股的資料（包含歷史股價與 info）
+    :param symbol: 股票代碼（例如 'AAPL'）
+    :param raw_data: pickle 快取中的全部資料（dict）
+    :return: dict（包含 'history' DataFrame 與 'info' 字典）或 None
+    """
+    if not symbol or not raw_data:
+        return None
+    
+    return raw_data.get(symbol.upper())  # 保險起見轉成大寫
+
 def filter_dividend_stocks(raw_data, yield_threshold=4, within_days=90):
     """
     從原始股票資料中篩選殖利率高於指定門檻的股票

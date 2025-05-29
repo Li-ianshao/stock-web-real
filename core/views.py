@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles
-from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks
+from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks, get_stock_data_by_symbol
 from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -102,8 +102,10 @@ def stock_detail_view(request, symbol):
     if not url_has_allowed_host_and_scheme(url=previous_url, allowed_hosts={request.get_host()}):
         previous_url = reverse('tab_dividend')
 
-    
+    stock_data = get_stock_data_by_symbol(symbol, raw_data)
+
     return render(request, 'core/detail.html', {
         'symbol': symbol,
         'previous_url': previous_url,
+        'stock_data':stock_data,
     })
