@@ -26,7 +26,11 @@
         <div x-show="open" class="mt-4 space-y-4">
 
             <!-- Placeholder 圖表 -->
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📊 股價 K 線圖]</div>
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
+                <div id="chart-candle" class="relative w-full h-[400px] bg-white">
+                    <div id="candle-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+                </div>
+            </div>
             <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📊 成交量柱狀圖]</div>
             <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📈 RSI 折線圖]</div>
             <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📉 MACD 指標圖]</div>
@@ -37,5 +41,171 @@
 
 <!-- Alpine.js for toggle -->
 <script src="https://unpkg.com/alpinejs" defer></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+    const priceData = {{ price_data|safe }};
+    console.log("資料範例：", priceData);
+
+    function drawCandleChart(data) {
+        const margin = { top: 20, right: 40, bottom: 30, left: 50 },
+            width = 900 - margin.left - margin.right,
+            height = 400 - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart-candle")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // 轉換日期格式
+        const parseDate = d3.timeParse("%Y-%m-%d");
+        data.forEach(d => {
+            d.date = parseDate(d.Date);
+            d.Open = +d.Open;
+            d.High = +d.High;
+            d.Low = +d.Low;
+            d.Close = +d.Close;
+        });
+
+        // 設定比例尺
+        const x = d3.scaleBand()
+            .domain(data.map(d => d.date))
+            .range([0, width])
+            .padding(0.3);
+
+        const y = d3.scaleLinear()
+            .domain([
+                d3.min(data, d => d.Low),
+                d3.max(data, d => d.High)
+            ])
+            .nice()
+            .range([height, 0]);
+
+        // X軸 & Y軸
+        const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x)
+                .tickValues(filteredDates)
+                .tickFormat(d3.timeFormat("%m/%d"))
+            );
+
+        svg.append("g")
+            .call(d3.axisLeft(y));
+
+        // 蠟燭圖本體
+        svg.selectAll("candlestick")
+            .data(data)
+            .enter()
+            .append("line")
+            .attr("x1", d => x(d.date) + x.bandwidth() / 2)
+            .attr("x2", d => x(d.date) + x.bandwidth() / 2)
+            .attr("y1", d => y(d.High))
+            .attr("y2", d => y(d.Low))
+            .attr("stroke", "black");
+
+        svg.selectAll("rect")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("x", d => x(d.date))
+            .attr("y", d => y(Math.max(d.Open, d.Close)))
+            .attr("height", d => Math.abs(y(d.Open) - y(d.Close)))
+            .attr("width", x.bandwidth())
+            .attr("fill", d => d.Close > d.Open ? "#00b300" : "#e60000");
+
+        // 布林通道（上軌 & 下軌）
+        const lineUpper = d3.line()
+            .defined(d => d.upper_band !== null && !isNaN(d.upper_band))
+            .x(d => x(d.date) + x.bandwidth()/2)
+            .y(d => y(d.upper_band));
+
+        svg.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "steelblue")
+            .attr("stroke-width", 1.5)
+            .attr("d", lineUpper);
+
+        const lineLower = d3.line()
+            .defined(d => d.lower_band !== null && !isNaN(d.lower_band))
+            .x(d => x(d.date) + x.bandwidth()/2)
+            .y(d => y(d.lower_band));
+
+        svg.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "orange")
+            .attr("stroke-width", 1.5)
+            .attr("d", lineLower);
+
+        // 十字線
+        const crosshairV = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        const crosshairH = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        // 事件感知區
+        svg.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("fill", "none")
+            .attr("pointer-events", "all")
+            .on("mousemove", handleMove)
+            .on("touchmove", handleMove)
+            .on("click", handleMove);
+
+        function handleMove(event) {
+            const [mx, my] = d3.pointer(event);
+
+            const bisectDate = d3.bisector(d => d.date).left;
+            const xDate = x.invert ? x.invert(mx) : new Date(x.domain()[Math.floor(mx / x.step())]);
+            const idx = bisectDate(data, xDate);
+            const d = data[idx];
+
+            if (!d || !d.date) return;
+
+            const cx = x(d.date) + x.bandwidth() / 2;
+            const cy = y(d.Close);
+
+            // 顯示十字線
+            crosshairV
+                .attr("x1", cx)
+                .attr("x2", cx)
+                .attr("y1", 0)
+                .attr("y2", height)
+                .style("display", "block");
+
+            crosshairH
+                .attr("x1", 0)
+                .attr("x2", width)
+                .attr("y1", cy)
+                .attr("y2", cy)
+                .style("display", "block");
+
+            // 顯示資訊框
+            const box = document.getElementById("candle-tooltip");
+            box.innerHTML = `
+                <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                <div>Open: ${d.Open?.toFixed(2)}</div>
+                <div>High: ${d.High?.toFixed(2)}</div>
+                <div>Low: ${d.Low?.toFixed(2)}</div>
+                <div>Close: ${d.Close?.toFixed(2)}</div>
+            `;
+            box.classList.remove("hidden");
+        }
+    }
+
+    drawCandleChart(priceData);
+</script>
 
 {% endblock %}

@@ -27,7 +27,8 @@ def calculate_macd(close_series, fast=12, slow=26, signal=9):
     ema_slow = close_series.ewm(span=slow).mean()
     macd = ema_fast - ema_slow
     signal_line = macd.ewm(span=signal).mean()
-    return macd, signal_line
+    histogram = macd - signal_line
+    return macd, signal_line, histogram
 
 
 def get_stock_data_by_symbol(symbol, raw_data):
@@ -277,7 +278,7 @@ def filter_macd_cross_stocks(raw_data):
                 continue
 
             close = hist['Close']
-            macd, signal = calculate_macd(close)
+            macd, signal, histogram = calculate_macd(close)
 
             # 檢查最近兩日是否形成黃金交叉
             if macd.iloc[-2] < signal.iloc[-2] and macd.iloc[-1] > signal.iloc[-1]:
