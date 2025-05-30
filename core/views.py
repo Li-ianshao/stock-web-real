@@ -39,7 +39,19 @@ def tab_dividend_view(request):
     last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
-        'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
+        'column_headers' : [
+            {'label': '股票代碼', 'key': 'symbol'},
+            {'label': '收盤價', 'key': 'close'},
+            {'label': '配息日', 'key': 'ex_date'},  # 這就是你要排序的主欄位
+            {'label': '配息金額', 'key': 'dividend'},
+            {'label': '此次配息率', 'key': 'dividend_ratio'},
+            {'label': '殖利率', 'key': 'yield'},
+            {'label': '當日漲跌幅', 'key': 'price_change'},
+            {'label': '一年最低價', 'key': 'year_low'},
+            {'label': '一年最高價', 'key': 'year_high'},
+            {'label': 'RSI', 'key': 'rsi'},
+            {'label': 'volume_Delta', 'key': 'volume_delta'},
+        ],
         'alert_change': 5,
         'rsi_high_warn': 70,
         'rsi_high_soft': 60,
@@ -57,7 +69,19 @@ def tab_rsi_view(request):
     last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
-        'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
+        'column_headers' : [
+            {'label': '股票代碼', 'key': 'symbol'},
+            {'label': '收盤價', 'key': 'close'},
+            {'label': '配息日', 'key': 'ex_date'},  # 這就是你要排序的主欄位
+            {'label': '配息金額', 'key': 'dividend'},
+            {'label': '此次配息率', 'key': 'dividend_ratio'},
+            {'label': '殖利率', 'key': 'yield'},
+            {'label': '當日漲跌幅', 'key': 'year_low'},
+            {'label': '一年最低價', 'key': 'price_change'},
+            {'label': '一年最高價', 'key': 'year_high'},
+            {'label': 'RSI', 'key': 'rsi'},
+            {'label': 'volume_Delta', 'key': 'volume_delta'},
+        ],
         'alert_change': 5,
         'rsi_high_warn': 70,
         'rsi_high_soft': 60,
@@ -74,7 +98,19 @@ def tab_bband_view(request):
     last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
-        'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
+        'column_headers' : [
+            {'label': '股票代碼', 'key': 'symbol'},
+            {'label': '收盤價', 'key': 'close'},
+            {'label': '配息日', 'key': 'ex_date'},  # 這就是你要排序的主欄位
+            {'label': '配息金額', 'key': 'dividend'},
+            {'label': '此次配息率', 'key': 'dividend_ratio'},
+            {'label': '殖利率', 'key': 'yield'},
+            {'label': '當日漲跌幅', 'key': 'year_low'},
+            {'label': '一年最低價', 'key': 'price_change'},
+            {'label': '一年最高價', 'key': 'year_high'},
+            {'label': 'RSI', 'key': 'rsi'},
+            {'label': 'volume_Delta', 'key': 'volume_delta'},
+        ],
         'alert_change': 5,
         'rsi_high_warn': 70,
         'rsi_high_soft': 60,
@@ -91,7 +127,19 @@ def tab_macd_view(request):
     last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
-        'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
+        'column_headers' : [
+            {'label': '股票代碼', 'key': 'symbol'},
+            {'label': '收盤價', 'key': 'close'},
+            {'label': '配息日', 'key': 'ex_date'},  # 這就是你要排序的主欄位
+            {'label': '配息金額', 'key': 'dividend'},
+            {'label': '此次配息率', 'key': 'dividend_ratio'},
+            {'label': '殖利率', 'key': 'yield'},
+            {'label': '當日漲跌幅', 'key': 'year_low'},
+            {'label': '一年最低價', 'key': 'price_change'},
+            {'label': '一年最高價', 'key': 'year_high'},
+            {'label': 'RSI', 'key': 'rsi'},
+            {'label': 'volume_Delta', 'key': 'volume_delta'},
+        ],
         'alert_change': 5,
         'rsi_high_warn': 70,
         'rsi_high_soft': 60,
