@@ -11,16 +11,29 @@ def calculate_bbands(hist, window=20, num_std=2):
     hist['bb_lower'] = hist['bb_middle'] - num_std * hist['bb_std']
     return hist['bb_upper'], hist['bb_lower']
 
-def calculate_rsi(hist):
-    # RSI 計算（14日）
+def calculate_rsi(hist, last_data=True, window=14):
+    """
+    RSI 計算（預設 14 日）
+    :param hist: 包含 Close 欄位的 DataFrame
+    :param last_data: True 則回傳單一數值；False 則回傳整個 Series
+    :param window: 計算視窗（預設 14）
+    :return: RSI 數值 或 RSI Series
+    """
     delta = hist["Close"].diff()
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
-    avg_gain = gain.rolling(window=14).mean().iloc[-1]
-    avg_loss = loss.rolling(window=14).mean().iloc[-1]
-    rs = avg_gain / avg_loss if avg_loss != 0 else 0
-    rsi = round(100 - (100 / (1 + rs)), 2) if avg_gain and avg_loss else 'N/A'
-    return rsi
+
+    avg_gain = gain.rolling(window=window).mean()
+    avg_loss = loss.rolling(window=window).mean()
+
+    rs = avg_gain / avg_loss
+    rsi_series = 100 - (100 / (1 + rs))
+
+    if last_data:
+        latest = rsi_series.iloc[-1]
+        return round(latest, 2) if not pd.isna(latest) else 'N/A'
+    else:
+        return rsi_series.round(2)
 
 def calculate_macd(close_series, fast=12, slow=26, signal=9):
     ema_fast = close_series.ewm(span=fast).mean()

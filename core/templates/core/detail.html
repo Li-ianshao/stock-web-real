@@ -13,7 +13,19 @@
             <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
         </div>
         <div x-show="open" class="mt-4 text-gray-700">
-            <p>這裡是 {{ symbol }} 的公司描述與基本資料區塊。可包含：行業、市值、市盈率、ROE、配息歷史等資訊。</p>
+            <div class="bg-white p-4 rounded shadow mb-6">
+            <p class="text-sm text-gray-600 mb-2">
+                <span class="font-medium">產業：</span>{{ sector }} |
+                <span class="font-medium">類別：</span>{{ industry }} |
+                <span class="font-medium">員工人數：</span>{{ employees }}
+            </p>
+            <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ summary }}</p>
+            {% if website %}
+                <p class="text-sm text-indigo-600 mt-2">
+                <a href="{{ website }}" target="_blank" class="underline">🌐 官方網站</a>
+                </p>
+            {% endif %}
+            </div>
         </div>
     </div>
 
@@ -31,9 +43,21 @@
                     <div id="candle-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
                 </div>
             </div>
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📊 成交量柱狀圖]</div>
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📈 RSI 折線圖]</div>
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">[📉 MACD 指標圖]</div>
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
+                <div id="chart-volume" class="relative w-full h-[200px] bg-white mt-8">
+                    <div id="volume-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
+                <div id="chart-rsi" class="relative w-full h-[200px] bg-white mt-8">
+                    <div id="rsi-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
+                <div id="chart-macd" class="relative w-full h-[200px] bg-white mt-8">
+                    <div id="macd-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -204,8 +228,402 @@
             box.classList.remove("hidden");
         }
     }
+    function drawVolumeChart(data) {
+        const margin = { top: 10, right: 40, bottom: 20, left: 50 },
+            width = 900 - margin.left - margin.right,
+            height = 200 - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart-volume")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const parseDate = d3.timeParse("%Y-%m-%d");
+        data.forEach(d => {
+            d.date = parseDate(d.Date);
+            d.Volume = +d.Volume;
+        });
+
+        const x = d3.scaleBand()
+            .domain(data.map(d => d.date))
+            .range([0, width])
+            .padding(0.2);
+
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.Volume)])
+            .nice()
+            .range([height, 0]);
+
+        // X軸 & Y軸
+        const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x)
+                .tickValues(filteredDates)
+                .tickFormat(d3.timeFormat("%m/%d"))
+            );
+
+        svg.append("g")
+            .call(d3.axisLeft(y));
+
+        svg.selectAll("rect")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("x", d => x(d.date))
+            .attr("y", d => y(d.Volume))
+            .attr("width", x.bandwidth())
+            .attr("height", d => height - y(d.Volume))
+            .attr("fill", "#4a90e2");
+
+        // 十字線共用邏輯（重複使用）
+        const crosshairV = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        const crosshairH = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        svg.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("fill", "none")
+            .attr("pointer-events", "all")
+            .on("mousemove", handleMove)
+            .on("touchmove", handleMove)
+            .on("click", handleMove);
+
+        function handleMove(event) {
+            const [mx, my] = d3.pointer(event);
+            const bisectDate = d3.bisector(d => d.date).left;
+            const xDate = x.domain()[Math.floor(mx / x.step())];
+            const idx = bisectDate(data, xDate);
+            const d = data[idx];
+
+            if (!d || !d.date) return;
+
+            const cx = x(d.date) + x.bandwidth() / 2;
+            const cy = y(d.Volume);
+
+            crosshairV
+                .attr("x1", cx)
+                .attr("x2", cx)
+                .attr("y1", 0)
+                .attr("y2", height)
+                .style("display", "block");
+
+            crosshairH
+                .attr("x1", 0)
+                .attr("x2", width)
+                .attr("y1", cy)
+                .attr("y2", cy)
+                .style("display", "block");
+
+            const box = document.getElementById("volume-tooltip");
+            box.innerHTML = `
+                <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                <div>Volume: ${d.Volume.toLocaleString()}</div>
+            `;
+            box.classList.remove("hidden");
+        }
+    }
+
+    function drawRSIChart(data) {
+        const margin = { top: 10, right: 40, bottom: 20, left: 50 },
+            width = 900 - margin.left - margin.right,
+            height = 200 - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart-rsi")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const parseDate = d3.timeParse("%Y-%m-%d");
+        data.forEach(d => {
+            d.date = parseDate(d.Date);
+            d.rsi = +d.rsi;
+        });
+
+        const x = d3.scaleBand()
+            .domain(data.map(d => d.date))
+            .range([0, width]);
+
+        const y = d3.scaleLinear()
+            .domain([0, 100])
+            .range([height, 0]);
+
+        // X軸 & Y軸
+        const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x)
+                .tickValues(filteredDates)
+                .tickFormat(d3.timeFormat("%m/%d"))
+            );
+
+        svg.append("g").call(d3.axisLeft(y));
+
+        // RSI 折線
+        const rsiLine = d3.line()
+            .defined(d => d.rsi !== null && !isNaN(d.rsi))
+            .x(d => x(d.date) + x.bandwidth() / 2)
+            .y(d => y(d.rsi));
+
+        svg.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "purple")
+            .attr("stroke-width", 2)
+            .attr("d", rsiLine);
+
+        // 超買/超賣區
+        svg.append("line") // 超買線
+            .attr("x1", 0)
+            .attr("x2", width)
+            .attr("y1", y(70))
+            .attr("y2", y(70))
+            .attr("stroke", "red")
+            .attr("stroke-dasharray", "4 2");
+
+        svg.append("line") // 超賣線
+            .attr("x1", 0)
+            .attr("x2", width)
+            .attr("y1", y(30))
+            .attr("y2", y(30))
+            .attr("stroke", "green")
+            .attr("stroke-dasharray", "4 2");
+
+        // 十字線
+        const crosshairV = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        const crosshairH = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        // 互動感知區
+        svg.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("fill", "none")
+            .attr("pointer-events", "all")
+            .on("mousemove", handleMove)
+            .on("touchmove", handleMove)
+            .on("click", handleMove);
+
+        function handleMove(event) {
+            const [mx, my] = d3.pointer(event);
+            const bisectDate = d3.bisector(d => d.date).left;
+            const xDate = x.domain()[Math.floor(mx / x.step())];
+            const idx = bisectDate(data, xDate);
+            const d = data[idx];
+
+            if (!d || d.rsi == null) return;
+
+            const cx = x(d.date) + x.bandwidth() / 2;
+            const cy = y(d.rsi);
+
+            crosshairV
+                .attr("x1", cx)
+                .attr("x2", cx)
+                .attr("y1", 0)
+                .attr("y2", height)
+                .style("display", "block");
+
+            crosshairH
+                .attr("x1", 0)
+                .attr("x2", width)
+                .attr("y1", cy)
+                .attr("y2", cy)
+                .style("display", "block");
+
+            const box = document.getElementById("rsi-tooltip");
+            box.innerHTML = `
+                <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                <div>RSI: ${d.rsi.toFixed(2)}</div>
+            `;
+            box.classList.remove("hidden");
+        }
+    }
+
+    function drawMACDChart(data) {
+        const margin = { top: 10, right: 40, bottom: 20, left: 50 },
+            width = 900 - margin.left - margin.right,
+            height = 200 - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart-macd")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const parseDate = d3.timeParse("%Y-%m-%d");
+        data.forEach(d => {
+            d.date = parseDate(d.Date);
+            d.hist = +d.hist;
+            d.macd = +d.macd;
+            d.signal = +d.signal;
+        });
+
+        const x = d3.scaleBand()
+            .domain(data.map(d => d.date))
+            .range([0, width])
+            .padding(0.1);
+
+        const y = d3.scaleLinear()
+            .domain([
+                d3.min(data, d => Math.min(d.hist, d.macd, d.signal, 0)),
+                d3.max(data, d => Math.max(d.hist, d.macd, d.signal, 0))
+            ])
+            .nice()
+            .range([height, 0]);
+
+        // X軸 & Y軸
+        const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(x)
+                .tickValues(filteredDates)
+                .tickFormat(d3.timeFormat("%m/%d"))
+            );
+
+        svg.append("g").call(d3.axisLeft(y));
+
+        // 0 軸線
+        svg.append("line")
+            .attr("x1", 0)
+            .attr("x2", width)
+            .attr("y1", y(0))
+            .attr("y2", y(0))
+            .attr("stroke", "#aaa")
+            .attr("stroke-dasharray", "3 2");
+
+        // 柱狀圖（hist）
+        svg.selectAll("rect")
+            .data(data)
+            .enter()
+            .append("rect")
+            .attr("x", d => x(d.date))
+            .attr("y", d => y(Math.max(0, d.hist)))
+            .attr("width", x.bandwidth())
+            .attr("height", d => Math.abs(y(d.hist) - y(0)))
+            .attr("fill", (d, i) => {
+                if (i === 0 || isNaN(data[i - 1].hist)) return "#ccc";  // 第一天無法比較
+                return d.hist > data[i - 1].hist ? "#4CAF50" : "#ff4d4d";  // 綠上紅下
+    });
+
+        // MACD 曲線
+        const macdLine = d3.line()
+            .defined(d => d.macd !== null && !isNaN(d.macd))
+            .x(d => x(d.date) + x.bandwidth() / 2)
+            .y(d => y(d.macd));
+
+        svg.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "purple")
+            .attr("stroke-width", 2)
+            .attr("d", macdLine);
+
+        // Signal 曲線
+        const signalLine = d3.line()
+            .defined(d => d.signal !== null && !isNaN(d.signal))
+            .x(d => x(d.date) + x.bandwidth() / 2)
+            .y(d => y(d.signal));
+
+        svg.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "orange")
+            .attr("stroke-width", 2)
+            .attr("d", signalLine);
+
+        // 十字線
+        const crosshairV = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        const crosshairH = svg.append("line")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "3 3")
+            .style("display", "none");
+
+        // 感知區域
+        svg.append("rect")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("fill", "none")
+            .attr("pointer-events", "all")
+            .on("mousemove", handleMove)
+            .on("touchmove", handleMove)
+            .on("click", handleMove);
+
+        function handleMove(event) {
+            const [mx, my] = d3.pointer(event);
+            const bisectDate = d3.bisector(d => d.date).left;
+            const xDate = x.domain()[Math.floor(mx / x.step())];
+            const idx = bisectDate(data, xDate);
+            const d = data[idx];
+            if (!d || d.macd == null) return;
+
+            const cx = x(d.date) + x.bandwidth() / 2;
+            const cy = y(d.hist);
+
+            crosshairV
+                .attr("x1", cx)
+                .attr("x2", cx)
+                .attr("y1", 0)
+                .attr("y2", height)
+                .style("display", "block");
+
+            crosshairH
+                .attr("x1", 0)
+                .attr("x2", width)
+                .attr("y1", cy)
+                .attr("y2", cy)
+                .style("display", "block");
+
+            const box = document.getElementById("macd-tooltip");
+            box.innerHTML = `
+                <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                <div>MACD: ${d.macd.toFixed(2)}</div>
+                <div>Signal: ${d.signal.toFixed(2)}</div>
+                <div>Hist: ${d.hist.toFixed(2)}</div>
+            `;
+            box.classList.remove("hidden");
+        }
+    }
+
+    // 呼叫畫圖
+    drawMACDChart(priceData);
+
+    drawRSIChart(priceData);
+
+    drawVolumeChart(priceData);
 
     drawCandleChart(priceData);
 </script>
 
 {% endblock %}
+    // 呼叫畫圖

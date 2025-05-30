@@ -110,15 +110,25 @@ def stock_detail_view(request, symbol):
 
     # 加入各項技術指標欄位
     df['upper_band'], df['lower_band'] = calculate_bbands(df)
-    df['rsi'] = calculate_rsi(df)
+    df['rsi'] = calculate_rsi(df,False)
     df['macd'], df['signal'], df['hist'] = calculate_macd(df['Close'])
 
     df = df.where(pd.notnull(df), None)
     price_data = json.dumps(df.to_dict(orient='records'))
 
+    summary = stock_data['info'].get('longBusinessSummary', '暫無公司簡介')
+    sector = stock_data['info'].get('sector', '未知')
+    industry = stock_data['info'].get('industry', '未知')
+    employees = stock_data['info'].get('fullTimeEmployees', '？')
+    website = stock_data['info'].get('website', '')
+
     return render(request, 'core/detail.html', {
         'symbol': symbol,
         'previous_url': previous_url,
-        'summary': stock_data['info'].get('longBusinessSummary', ''),
+        'summary': summary,
+        'sector': sector,
+        'industry': industry,
+        'employees': employees,
+        'website': website,
         'price_data': price_data
     })
