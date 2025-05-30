@@ -348,7 +348,7 @@ def filter_macd_cross_stocks(raw_data):
 
     return result
 
-def filter_big_drop_stocks(raw_data, threshold=-30):
+def filter_big_drop_stocks(raw_data, threshold=30):
     result = []
 
     for symbol, content in raw_data.items():
@@ -360,11 +360,11 @@ def filter_big_drop_stocks(raw_data, threshold=-30):
 
             close_series = hist['Close']
             recent_close = close_series.iloc[-1]
-            lowest_close = close_series.iloc[-21:].min()
+            highest_close = close_series.iloc[-21:].max()
 
-            drop_pct = round((lowest_close - recent_close) / lowest_close * 100, 2)
+            drop_pct = round((highest_close - recent_close) / highest_close * 100, 2)
 
-            if drop_pct <= threshold:
+            if drop_pct >= threshold:
                 
                 # 收盤價
                 close = round(hist["Close"][-1],2) if not hist.empty else 'N/A'

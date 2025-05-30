@@ -116,19 +116,18 @@ def stock_detail_view(request, symbol):
     df = df.where(pd.notnull(df), None)
     price_data = json.dumps(df.to_dict(orient='records'))
 
-    summary = stock_data['info'].get('longBusinessSummary', '暫無公司簡介')
-    sector = stock_data['info'].get('sector', '未知')
-    industry = stock_data['info'].get('industry', '未知')
-    employees = stock_data['info'].get('fullTimeEmployees', '？')
-    website = stock_data['info'].get('website', '')
-
     return render(request, 'core/detail.html', {
         'symbol': symbol,
         'previous_url': previous_url,
-        'summary': summary,
-        'sector': sector,
-        'industry': industry,
-        'employees': employees,
-        'website': website,
+        'company_name': stock_data['info'].get('longName') or stock_data['info'].get('shortName'),
+        'sector': stock_data['info'].get('sector'),
+        'industry': stock_data['info'].get('industry'),
+        'employees': stock_data['info'].get('fullTimeEmployees'),
+        'address': stock_data['info'].get('address1'),
+        'city': stock_data['info'].get('city'),
+        'state': stock_data['info'].get('state'),
+        'country': stock_data['info'].get('country'),
+        'website': stock_data['info'].get('website'),
+        'description': stock_data['info'].get('longBusinessSummary'),
         'price_data': price_data
     })
