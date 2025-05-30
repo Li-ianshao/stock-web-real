@@ -1,6 +1,7 @@
 import os
 import pickle
 import yfinance as yf
+import datetime
 
 # 預設快取檔路徑
 CACHE_FILE = 'cache/sp500_data.pico'
@@ -46,6 +47,9 @@ def fetch_stock_data(symbols, period='3mo', interval='1d'):
         except Exception as e:
             print(f"抓取 {symbol} 失敗：{e}")
             continue
+    
+    with open("cache/last_updated.txt", "w") as f:
+            f.write(str(datetime.datetime.now()))
 
     return result
 

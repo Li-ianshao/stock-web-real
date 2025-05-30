@@ -10,10 +10,19 @@ from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
+import os
+from datetime import datetime
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
-
+def get_last_update_time():
+    try:
+        with open("cache/last_updated.txt", "r") as f:
+            timestamp = f.read().strip()
+            dt = datetime.fromisoformat(timestamp)
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except:
+        return "尚無記錄"
 
 def get_raw_data():
     return load_or_fetch_stock_data(load_sp500_symbols())
@@ -27,6 +36,7 @@ def clear_cache_view(request):
 @login_required
 def tab_dividend_view(request):
     filtered_data = filter_dividend_stocks(get_raw_data())
+    last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -36,6 +46,7 @@ def tab_dividend_view(request):
         'rsi_low_soft': 40,
         'rsi_low_warn': 30,
         'alert_volume': 100,
+        "last_updated": last_updated,
     }
     return render(request, 'core/tab_dividend.html', context)
 
@@ -43,6 +54,7 @@ def tab_dividend_view(request):
 @login_required
 def tab_rsi_view(request):
     filtered_data = filter_rsi_alert_stocks(get_raw_data())
+    last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -52,12 +64,14 @@ def tab_rsi_view(request):
         'rsi_low_soft': 40,
         'rsi_low_warn': 30,
         'alert_volume': 100,
+        "last_updated": last_updated,
     }
     return render(request, 'core/tab_rsi.html', context)
 
 @login_required
 def tab_bband_view(request):
     filtered_data = filter_bband_stocks(get_raw_data())
+    last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -67,12 +81,14 @@ def tab_bband_view(request):
         'rsi_low_soft': 40,
         'rsi_low_warn': 30,
         'alert_volume': 100,
+        "last_updated": last_updated,
     }
     return render(request, 'core/tab_bband.html', context)
 
 @login_required
 def tab_macd_view(request):
     filtered_data = filter_macd_cross_stocks(get_raw_data())
+    last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -82,12 +98,14 @@ def tab_macd_view(request):
         'rsi_low_soft': 40,
         'rsi_low_warn': 30,
         'alert_volume': 100,
+        "last_updated": last_updated,
     }
     return render(request, 'core/tab_macd.html', context)
 
 @login_required
 def tab_drop_view(request):
     filtered_data = filter_big_drop_stocks(get_raw_data())
+    last_updated = get_last_update_time()
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -97,6 +115,7 @@ def tab_drop_view(request):
         'rsi_low_soft': 40,
         'rsi_low_warn': 30,
         'alert_volume': 100,
+        "last_updated": last_updated,
     }
     return render(request, 'core/tab_drop.html', context)
 
