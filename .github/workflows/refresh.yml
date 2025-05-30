@@ -2,7 +2,7 @@ name: Daily Cache Refresh
 
 on:
   schedule:
-    - cron: '0 21 * * *'  # 每天 UTC 21:00 = 美東時間 17:00
+    - cron: '0 17 * * *'  # 每天 UTC 17:00 = 美東時間 13:00
   workflow_dispatch:       # 允許手動觸發（測試用）
 
 jobs:

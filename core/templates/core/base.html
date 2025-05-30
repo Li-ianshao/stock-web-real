@@ -67,9 +67,11 @@
         <thead class="bg-indigo-100 text-gray-800">
             <tr>
                 {% for col in column_headers %}
-                <th class="px-4 py-2 cursor-pointer select-none" onclick="sortTable({{ forloop.counter0 }})">
-                    {{ col }}
-                    <span id="arrow-{{ forloop.counter0 }}"></span>
+                <th onclick="sortTable('{{ col.key }}')"
+                    data-key="{{ col.key }}"
+                    class="px-4 py-2 cursor-pointer select-none text-left">
+                    {{ col.label }}
+                    <span id="arrow-{{col.key}}"></span>
                 </th>
                 {% endfor %}
             </tr>
@@ -77,27 +79,27 @@
         <tbody id="stock-table-body">
             {% for stock in stocks %}
             <tr class="{% if stock.dividend == 0 %}bg-red-50{% endif %} border-b">
-                <td class="px-4 py-2 font-semibold text-blue-700 hover:underline">
+                <td data-key="symbol" class="px-4 py-2 font-semibold text-blue-700 hover:underline">
                     <a href="{% url 'stock_detail' stock.symbol %}">{{ stock.symbol }}</a>
                 </td>
-                <td class="px-4 py-2">{{ stock.close }}</td>
-                <td class="px-4 py-2 {% if stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.ex_dividend_date }}</td>
-                <td class="px-4 py-2 {% if stock.dividend == 0 or stock.dividend == '0' or stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.dividend }}</td>
-                <td class="px-4 py-2 {% if stock.dividend_ratio == 0 or stock.dividend_ratio == '0' or stock.dividend_ratio == 'N/A' %}text-gray-400{% endif %}">
+                <td data-key="close" class="px-4 py-2">{{ stock.close }}</td>
+                <td data-key="ex_date" class="px-4 py-2 {% if stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.ex_dividend_date }}</td>
+                <td data-key="dividend" class="px-4 py-2 {% if stock.dividend == 0 or stock.dividend == '0' or stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.dividend }}</td>
+                <td data-key="dividend_ratio" class="px-4 py-2 {% if stock.dividend_ratio == 0 or stock.dividend_ratio == '0' or stock.dividend_ratio == 'N/A' %}text-gray-400{% endif %}">
                     {{ stock.dividend_ratio }}
                     {% if stock.dividend_ratio != 'N/A' %}
                         %
                     {% endif %}
                 </td>
-                <td class="px-4 py-2 {% if stock.yield == 0 or stock.yield == '0' or stock.yield == 'N/A' %}text-gray-400{% endif %}">
+                <td data-key="yield" class="px-4 py-2 {% if stock.yield == 0 or stock.yield == '0' or stock.yield == 'N/A' %}text-gray-400{% endif %}">
                     {{ stock.yield }}%
                 </td>
-                <td class="px-4 py-2 {% if stock.daily_change|floatformat:2 < alert_change|floatformat:2 and stock.daily_change|floatformat:2 < 0 %}text-yellow-600 font-bold{% endif %}">
+                <td data-key="price_change" class="px-4 py-2 {% if stock.daily_change|floatformat:2 < alert_change|floatformat:2 and stock.daily_change|floatformat:2 < 0 %}text-yellow-600 font-bold{% endif %}">
                     {{ stock.price_change }}%
                 </td>
-                <td class="px-4 py-2">{{ stock.year_low }}</td>
-                <td class="px-4 py-2">{{ stock.year_high }}</td>
-                <td class="px-4 py-2 
+                <td data-key="year_low" class="px-4 py-2">{{ stock.year_low }}</td>
+                <td data-key="year_high" class="px-4 py-2">{{ stock.year_high }}</td>
+                <td data-key="rsi" class="px-4 py-2 
                     {% if stock.rsi > rsi_high_warn %}text-red-600
                     {% elif stock.rsi > rsi_high_soft %}text-orange-500
                     {% elif stock.rsi < rsi_low_warn %}text-red-600
@@ -105,7 +107,7 @@
                     {% endif %}">
                     {{ stock.rsi }}
                 </td>
-                <td class="px-4 py-2 {% if stock.volume_delta > alert_volume %}bg-yellow-100{% endif %}">{{ stock.volume_delta }}%</td>
+                <td data-key="volume_delta" class="px-4 py-2 {% if stock.volume_delta > alert_volume %}bg-yellow-100{% endif %}">{{ stock.volume_delta }}%</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -116,34 +118,61 @@
 <script>
     let sortOrder = 1;
     let lastSortedColumn = -1;
+    
 
-    function sortTable(colIndex) {
+    function sortTable(colKey) {
+        console.log(colKey)
         const table = document.getElementById("stock-table-body");
         const rows = Array.from(table.rows);
 
-        if (lastSortedColumn === colIndex) {
-            sortOrder *= -1; // 反向排序
-        } else {
-            sortOrder = 1;
+        // 儲存排序狀態（每個欄位都記住升降）
+        if (!sortTable.sortOrder) {
+            sortTable.sortOrder = {};
         }
-        lastSortedColumn = colIndex;
+        sortTable.sortOrder[colKey] = !sortTable.sortOrder[colKey];
+
+        const isAsc = sortTable.sortOrder[colKey];
 
         rows.sort((a, b) => {
-            const aText = a.cells[colIndex].innerText.trim();
-            const bText = b.cells[colIndex].innerText.trim();
+            const cellA = a.querySelector(`[data-key='${colKey}']`);
+            const cellB = b.querySelector(`[data-key='${colKey}']`);
+            if (!cellA || !cellB) return 0;
 
-            const aVal = parseFloat(aText.replace('%','')) || aText;
-            const bVal = parseFloat(bText.replace('%','')) || bText;
 
-            return sortOrder * (aVal > bVal ? 1 : aVal < bVal ? -1 : 0);
+            let valA = cellA.getAttribute("data-value") || cellA.innerText;
+            let valB = cellB.getAttribute("data-value") || cellB.innerText;
+
+            console.log(valA)
+            console.log(valB)
+
+            // 嘗試轉換為數字
+            const numA = parseFloat(valA);
+            const numB = parseFloat(valB);
+
+            console.log(numA)
+            console.log(numB)
+
+            if (!isNaN(Date.parse(valA)) && !isNaN(Date.parse(valB))) {
+                valA = new Date(valA);
+                valB = new Date(valB);
+            } else if (!isNaN(parseFloat(valA)) && !isNaN(parseFloat(valB))) {
+                valA = parseFloat(valA);
+                valB = parseFloat(valB);
+            }
+
+            if (valA < valB) return isAsc ? -1 : 1;
+            if (valA > valB) return isAsc ? 1 : -1;
+            return 0;
         });
 
         rows.forEach(row => table.appendChild(row));
 
         // 重設所有箭頭
         document.querySelectorAll('[id^=arrow-]').forEach(el => el.innerHTML = '');
-        document.getElementById(`arrow-${colIndex}`).innerHTML = sortOrder === 1 ? '↑' : '↓';
+        document.getElementById(`arrow-${colKey}`).innerHTML = isAsc ? '↑' : '↓';
     }
+
+    
 </script>
 
 </body>
