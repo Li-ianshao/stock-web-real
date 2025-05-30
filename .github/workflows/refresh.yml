@@ -1,0 +1,30 @@
+name: Daily Cache Refresh
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 每天 UTC 21:00 = 美東時間 17:00
+  workflow_dispatch:       # 允許手動觸發（測試用）
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django management command
+        env:
+          DJANGO_SETTINGS_MODULE: stockweb.settings  # 請依實際名稱修改
+        run: |
+          python manage.py refresh_cache_data
