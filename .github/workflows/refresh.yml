@@ -2,7 +2,7 @@ name: Daily Cache Refresh
 
 on:
   schedule:
-    - cron: '0 17 * * *'  # 每天 UTC 17:00 = 美東時間 13:00
+    - cron: '0 18 * * *'  # 每天 UTC 18:00 = 美東時間 14:00
   workflow_dispatch:       # 允許手動觸發（測試用）
 
 jobs:
@@ -28,3 +28,11 @@ jobs:
           DJANGO_SETTINGS_MODULE: stockweb.settings  # 請依實際名稱修改
         run: |
           python manage.py refresh_cache_data
+
+      - name: Commit and push updated cache
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cache/*.pico cache/last_updated.txt
+          git commit -m "每日快取更新：${{ github.run_id }}" || echo "Nothing to commit"
+          git push
