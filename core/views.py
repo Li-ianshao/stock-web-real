@@ -13,7 +13,10 @@ from django.urls import reverse
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
-raw_data  = load_or_fetch_stock_data(load_sp500_symbols())
+
+
+def get_raw_data():
+    return load_or_fetch_stock_data(load_sp500_symbols())
 
 @login_required
 def clear_cache_view(request):
@@ -23,7 +26,7 @@ def clear_cache_view(request):
 
 @login_required
 def tab_dividend_view(request):
-    filtered_data = filter_dividend_stocks(raw_data)
+    filtered_data = filter_dividend_stocks(get_raw_data())
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -39,7 +42,7 @@ def tab_dividend_view(request):
 
 @login_required
 def tab_rsi_view(request):
-    filtered_data = filter_rsi_alert_stocks(raw_data)
+    filtered_data = filter_rsi_alert_stocks(get_raw_data())
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -54,7 +57,7 @@ def tab_rsi_view(request):
 
 @login_required
 def tab_bband_view(request):
-    filtered_data = filter_bband_stocks(raw_data)
+    filtered_data = filter_bband_stocks(get_raw_data())
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -69,7 +72,7 @@ def tab_bband_view(request):
 
 @login_required
 def tab_macd_view(request):
-    filtered_data = filter_macd_cross_stocks(raw_data)
+    filtered_data = filter_macd_cross_stocks(get_raw_data())
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -84,7 +87,7 @@ def tab_macd_view(request):
 
 @login_required
 def tab_drop_view(request):
-    filtered_data = filter_big_drop_stocks(raw_data)
+    filtered_data = filter_big_drop_stocks(get_raw_data())
     context = {
         'stocks': filtered_data,
         'column_headers': ['代碼', '收盤價', '配息日', '配息', '此次配息率', '殖利率', '當日漲跌幅', '一年最低價', '一年最高價', 'RSI', 'volume_Delta'],
@@ -103,7 +106,7 @@ def stock_detail_view(request, symbol):
     if not url_has_allowed_host_and_scheme(url=previous_url, allowed_hosts={request.get_host()}):
         previous_url = reverse('tab_dividend')
 
-    stock_data = get_stock_data_by_symbol(symbol, raw_data)
+    stock_data = get_stock_data_by_symbol(symbol, get_raw_data())
 
     df = stock_data['history'].copy()
     df['Date'] = df.index.strftime('%Y-%m-%d')
