@@ -10,6 +10,9 @@
     <!-- 導覽列 -->
     <nav class="bg-white shadow p-4 flex justify-between items-center">
         <h1 class="text-xl font-bold text-indigo-600">S&P 500 技術與配息分析平台</h1>
+        <p class="text-sm text-gray-500 text-right">
+            📅 最後更新時間：{{ last_updated }}
+        </p>
         <div class="text-sm text-gray-700">
             您好，{{ request.user.username }} |
             <form method="post" action="{% url 'logout' %}" class="inline">
@@ -19,6 +22,7 @@
             <a href="{% url 'clear_cache' %}" class="ml-4 text-sm text-yellow-600 hover:text-yellow-800 transition">
                 清除pico檔案
             </a>
+
         </div>
     </nav>
 

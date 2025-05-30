@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from core.utils.fetcher import clear_all_pickles, load_or_fetch_stock_data  # 這是你自訂的函式
 from core.constants import load_sp500_symbols
+import datetime
 
 class Command(BaseCommand):
     help = '清除所有快取並重新抓取股票資料'
