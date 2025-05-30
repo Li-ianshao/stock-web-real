@@ -79,27 +79,27 @@
         <tbody id="stock-table-body">
             {% for stock in stocks %}
             <tr class="{% if stock.dividend == 0 %}bg-red-50{% endif %} border-b">
-                <td data-key="symbol" class="px-4 py-2 font-semibold text-blue-700 hover:underline">
+                <td data-key="symbol" data-value="{{stock.symbol}}" class="px-4 py-2 font-semibold text-blue-700 hover:underline">
                     <a href="{% url 'stock_detail' stock.symbol %}">{{ stock.symbol }}</a>
                 </td>
-                <td data-key="close" class="px-4 py-2">{{ stock.close }}</td>
-                <td data-key="ex_date" class="px-4 py-2 {% if stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.ex_dividend_date }}</td>
-                <td data-key="dividend" class="px-4 py-2 {% if stock.dividend == 0 or stock.dividend == '0' or stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.dividend }}</td>
-                <td data-key="dividend_ratio" class="px-4 py-2 {% if stock.dividend_ratio == 0 or stock.dividend_ratio == '0' or stock.dividend_ratio == 'N/A' %}text-gray-400{% endif %}">
+                <td data-key="close" data-value="{{stock.close}}" class="px-4 py-2">{{ stock.close }}</td>
+                <td data-key="ex_date" data-value="{{stock.ex_dividend_date}}" class="px-4 py-2 {% if stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.ex_dividend_date }}</td>
+                <td data-key="dividend" data-value="{{stock.dividend}}" class="px-4 py-2 {% if stock.dividend == 0 or stock.dividend == '0' or stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.dividend }}</td>
+                <td data-key="dividend_ratio" data-value="{{stock.dividend_ratio}}" class="px-4 py-2 {% if stock.dividend_ratio == 0 or stock.dividend_ratio == '0' or stock.dividend_ratio == 'N/A' %}text-gray-400{% endif %}">
                     {{ stock.dividend_ratio }}
                     {% if stock.dividend_ratio != 'N/A' %}
                         %
                     {% endif %}
                 </td>
-                <td data-key="yield" class="px-4 py-2 {% if stock.yield == 0 or stock.yield == '0' or stock.yield == 'N/A' %}text-gray-400{% endif %}">
+                <td data-key="yield" data-value="{{stock.yield}}" class="px-4 py-2 {% if stock.yield == 0 or stock.yield == '0' or stock.yield == 'N/A' %}text-gray-400{% endif %}">
                     {{ stock.yield }}%
                 </td>
-                <td data-key="price_change" class="px-4 py-2 {% if stock.daily_change|floatformat:2 < alert_change|floatformat:2 and stock.daily_change|floatformat:2 < 0 %}text-yellow-600 font-bold{% endif %}">
+                <td data-key="price_change" data-value="{{stock.price_change}}" class="px-4 py-2 {% if stock.daily_change|floatformat:2 < alert_change|floatformat:2 and stock.daily_change|floatformat:2 < 0 %}text-yellow-600 font-bold{% endif %}">
                     {{ stock.price_change }}%
                 </td>
-                <td data-key="year_low" class="px-4 py-2">{{ stock.year_low }}</td>
-                <td data-key="year_high" class="px-4 py-2">{{ stock.year_high }}</td>
-                <td data-key="rsi" class="px-4 py-2 
+                <td data-key="year_low" data-value="{{stock.year_low}}" class="px-4 py-2">{{ stock.year_low }}</td>
+                <td data-key="year_high" data-value="{{stock.year_high}}" class="px-4 py-2">{{ stock.year_high }}</td>
+                <td data-key="rsi" data-value="{{stock.year_low}}" class="px-4 py-2 
                     {% if stock.rsi > rsi_high_warn %}text-red-600
                     {% elif stock.rsi > rsi_high_soft %}text-orange-500
                     {% elif stock.rsi < rsi_low_warn %}text-red-600
@@ -107,7 +107,7 @@
                     {% endif %}">
                     {{ stock.rsi }}
                 </td>
-                <td data-key="volume_delta" class="px-4 py-2 {% if stock.volume_delta > alert_volume %}bg-yellow-100{% endif %}">{{ stock.volume_delta }}%</td>
+                <td data-key="volume_delta" data-value="{{stock.volume_delta}}" class="px-4 py-2 {% if stock.volume_delta > alert_volume %}bg-yellow-100{% endif %}">{{ stock.volume_delta }}%</td>
             </tr>
             {% endfor %}
         </tbody>
