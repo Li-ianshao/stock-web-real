@@ -13,17 +13,22 @@
             <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
         </div>
         <div x-show="open" class="mt-4 text-gray-700">
-            <div class="bg-white p-4 rounded shadow mb-6">
-            <p class="text-sm text-gray-600 mb-2">
-                <span class="font-medium">產業：</span>{{ sector }} |
-                <span class="font-medium">類別：</span>{{ industry }} |
-                <span class="font-medium">員工人數：</span>{{ employees }}
-            </p>
-            <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ summary }}</p>
-            {% if website %}
-                <p class="text-sm text-indigo-600 mt-2">
-                <a href="{{ website }}" target="_blank" class="underline">🌐 官方網站</a>
-                </p>
+            <div class="border rounded-lg shadow p-4 bg-white mb-6">
+            <h2 class="text-lg font-bold text-indigo-700 mb-2">🏢 公司營運概覽</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
+                <div><span class="font-medium text-gray-600">公司名稱：</span> {{ company_name|default:"-" }}</div>
+                <div><span class="font-medium text-gray-600">產業：</span> {{ sector|default:"-" }}</div>
+                <div><span class="font-medium text-gray-600">細分產業：</span> {{ industry|default:"-" }}</div>
+                <div><span class="font-medium text-gray-600">員工人數：</span> {{ employees|default:"-" }}</div>
+                <div><span class="font-medium text-gray-600">總部地點：</span>
+                {{ address|default:"-" }}, {{ city|default:"" }}{{ state|default:"" }}{{ country|default:"" }}
+                </div>
+                <div><span class="font-medium text-gray-600">官方網站：</span>
+                {% if website %}<a href="{{ website }}" target="_blank" class="text-blue-600 underline">{{ website }}</a>{% else %}-{% endif %}
+                </div>
+            </div>
+            {% if description %}
+                <p class="mt-4 text-gray-600 text-sm leading-relaxed whitespace-pre-line">{{ description }}</p>
             {% endif %}
             </div>
         </div>
@@ -37,25 +42,69 @@
         </div>
         <div x-show="open" class="mt-4 space-y-4">
 
-            <!-- Placeholder 圖表 -->
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
-                <div id="chart-candle" class="relative w-full h-[400px] bg-white">
-                    <div id="candle-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+            <!-- 📈 股價變動與布林通道 圖區塊 -->
+            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                    <div>
+                    <h3 class="text-base font-semibold text-gray-800">🕯️ 股價變動圖與布林通道（BBands）</h3>
+                    <p class="text-sm text-gray-500">顯示每日股價開盤、收盤、高低點與布林通道，幫助判斷股價波動範圍與壓力支撐位置。</p>
+                    </div>
+                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                </div>
+
+                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                    <div id="chart-candle" class="relative w-full h-[400px] bg-white">
+                        <div id="candle-tooltip" style="min-width: 120px; max-width: 110px; max-height: 95px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                    </div>
                 </div>
             </div>
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
-                <div id="chart-volume" class="relative w-full h-[200px] bg-white mt-8">
-                    <div id="volume-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+            <!-- 📈 交易量 圖區塊 -->
+            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                    <div>
+                    <h3 class="text-base font-semibold text-gray-800">📊 成交量（Volume）</h3>
+                    <p class="text-sm text-gray-500">呈現每日交易量，用來觀察市場活躍度與價量背離狀況。大量交易通常代表多空拉鋸或趨勢確認。</p>
+                    </div>
+                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                </div>
+
+                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                    <div id="chart-volume" class="relative w-full h-[200px] bg-white mt-8">
+                        <div id="volume-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                    </div>
                 </div>
             </div>
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
-                <div id="chart-rsi" class="relative w-full h-[200px] bg-white mt-8">
-                    <div id="rsi-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+            
+            <!-- 📈 RSI 圖區塊 -->
+            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                    <div>
+                    <h3 class="text-base font-semibold text-gray-800">📈 RSI 相對強弱指標</h3>
+                    <p class="text-sm text-gray-500">判斷股票是否過熱（超買）或過冷（超賣）</p>
+                    </div>
+                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                </div>
+
+                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                    <div id="chart-rsi" class="relative w-full h-[200px] bg-white">
+                        <div id="rsi-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                    </div>
                 </div>
             </div>
-            <div class="p-4 bg-gray-100 rounded text-center text-gray-500">
-                <div id="chart-macd" class="relative w-full h-[200px] bg-white mt-8">
-                    <div id="macd-tooltip" class="absolute right-2 bottom-2 bg-gray-100 text-xs text-gray-800 px-2 py-1 rounded shadow hidden"></div>
+            <!-- 📈 MACD 圖區塊 -->
+            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                    <div>
+                    <h3 class="text-base font-semibold text-gray-800">📉 MACD 指標</h3>
+                    <p class="text-sm text-gray-500">結合快速線與慢速線觀察多空轉折。柱狀圖顯示多空動能變化，線條交叉通常預示可能的趨勢反轉。</p>
+                    </div>
+                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                </div>
+
+                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                    <div id="chart-macd" class="relative w-full h-[200px] bg-white mt-8">
+                        <div id="macd-tooltip" style="min-width: 120px; max-width: 110px; max-height: 75px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -69,7 +118,7 @@
 <script>
     const priceData = {{ price_data|safe }};
     console.log("資料範例：", priceData);
-
+    
     function drawCandleChart(data) {
         const margin = { top: 20, right: 40, bottom: 30, left: 50 },
             width = 900 - margin.left - margin.right,
@@ -189,12 +238,13 @@
             .on("click", handleMove);
 
         function handleMove(event) {
-            const [mx, my] = d3.pointer(event);
+            const [mx, my] = d3.pointer(event, svg.node());
 
             const bisectDate = d3.bisector(d => d.date).left;
             const xDate = x.invert ? x.invert(mx) : new Date(x.domain()[Math.floor(mx / x.step())]);
             const idx = bisectDate(data, xDate);
             const d = data[idx];
+            
 
             if (!d || !d.date) return;
 
@@ -218,6 +268,15 @@
 
             // 顯示資訊框
             const box = document.getElementById("candle-tooltip");
+            const boxWidth = 110;  // 你設定的 tooltip 寬度
+            const offset = 10;
+
+            const svgRect = svg.node().getBoundingClientRect();
+
+            // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+            
             box.innerHTML = `
                 <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
                 <div>Open: ${d.Open?.toFixed(2)}</div>
@@ -225,6 +284,11 @@
                 <div>Low: ${d.Low?.toFixed(2)}</div>
                 <div>Close: ${d.Close?.toFixed(2)}</div>
             `;
+            // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            box.style.left = `${leftPos+40}px`;
+            box.style.top = `${my + offset-5}px`;
+            box.style.position = "absolute";
+            box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
             box.classList.remove("hidden");
         }
     }
@@ -302,7 +366,7 @@
             .on("click", handleMove);
 
         function handleMove(event) {
-            const [mx, my] = d3.pointer(event);
+            const [mx, my] = d3.pointer(event, svg.node());
             const bisectDate = d3.bisector(d => d.date).left;
             const xDate = x.domain()[Math.floor(mx / x.step())];
             const idx = bisectDate(data, xDate);
@@ -328,10 +392,24 @@
                 .style("display", "block");
 
             const box = document.getElementById("volume-tooltip");
+            const boxWidth = 110;  // 你設定的 tooltip 寬度
+            const offset = 10;
+
+            const svgRect = svg.node().getBoundingClientRect();
+
+            // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+            
             box.innerHTML = `
                 <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
                 <div>Volume: ${d.Volume.toLocaleString()}</div>
             `;
+            // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            box.style.left = `${leftPos+40}px`;
+            box.style.top = `${my + offset-5}px`;
+            box.style.position = "absolute";
+            box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
             box.classList.remove("hidden");
         }
     }
@@ -428,7 +506,7 @@
             .on("click", handleMove);
 
         function handleMove(event) {
-            const [mx, my] = d3.pointer(event);
+            const [mx, my] = d3.pointer(event, svg.node());
             const bisectDate = d3.bisector(d => d.date).left;
             const xDate = x.domain()[Math.floor(mx / x.step())];
             const idx = bisectDate(data, xDate);
@@ -454,10 +532,22 @@
                 .style("display", "block");
 
             const box = document.getElementById("rsi-tooltip");
+            const boxWidth = 110;  // 你設定的 tooltip 寬度
+            const offset = 10;
+
+            const svgRect = svg.node().getBoundingClientRect();
+
+            // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
             box.innerHTML = `
                 <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
                 <div>RSI: ${d.rsi.toFixed(2)}</div>
             `;
+            // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            box.style.left = `${leftPos+40}px`;
+            box.style.top = `${my + offset-5}px`;
+            box.style.position = "absolute";
+            box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
             box.classList.remove("hidden");
         }
     }
@@ -580,11 +670,12 @@
             .on("click", handleMove);
 
         function handleMove(event) {
-            const [mx, my] = d3.pointer(event);
+            const [mx, my] = d3.pointer(event, svg.node());
             const bisectDate = d3.bisector(d => d.date).left;
             const xDate = x.domain()[Math.floor(mx / x.step())];
             const idx = bisectDate(data, xDate);
             const d = data[idx];
+            
             if (!d || d.macd == null) return;
 
             const cx = x(d.date) + x.bandwidth() / 2;
@@ -605,12 +696,27 @@
                 .style("display", "block");
 
             const box = document.getElementById("macd-tooltip");
+            const boxWidth = 110;  // 你設定的 tooltip 寬度
+            const offset = 10;
+
+            const svgRect = svg.node().getBoundingClientRect();
+            
+
+            // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+            
             box.innerHTML = `
                 <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
                 <div>MACD: ${d.macd.toFixed(2)}</div>
                 <div>Signal: ${d.signal.toFixed(2)}</div>
                 <div>Hist: ${d.hist.toFixed(2)}</div>
             `;
+            // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            box.style.left = `${leftPos+40}px`;
+            box.style.top = `${my + offset-5}px`;
+            box.style.position = "absolute";
+            box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
             box.classList.remove("hidden");
         }
     }
