@@ -36,3 +36,12 @@ jobs:
           git add cache/*.pico cache/last_updated.txt
           git commit -m "每日快取更新：${{ github.run_id }}" || echo "Nothing to commit"
           git push
+
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'stock-web-real'
+          slot-name: 'Production'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_4CD4FD15ECAC45078F78C104A74C0A6F }}
+          package: .
