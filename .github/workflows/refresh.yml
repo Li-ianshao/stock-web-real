@@ -2,7 +2,7 @@ name: Daily Cache Refresh
 
 on:
   schedule:
-    - cron: '0 24 * * *'  # UTC時間
+    - cron: '40 0 * * *'  # UTC時間
   workflow_dispatch:       # 允許手動觸發（測試用）
 
 jobs:
