@@ -2,7 +2,7 @@ name: Daily Cache Refresh
 
 on:
   schedule:
-    - cron: '0 11 * * *'  # UTC時間
+    - cron: '0 17 * * *'  # UTC時間
   workflow_dispatch:       # 允許手動觸發（測試用）
 
 jobs:
@@ -40,6 +40,10 @@ jobs:
       - name: Run migrations
         run: |
           python manage.py migrate
+
+      - name: Create Django superuser (if not exists)
+        run: echo "from django.contrib.auth import get_user_model; import os; User = get_user_model(); User.objects.filter(username='shao').exists() or User.objects.create_superuser('shao', 'admin@example.com', '50202')" | python manage.py shell
+
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
