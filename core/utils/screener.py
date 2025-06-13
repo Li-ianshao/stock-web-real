@@ -18,13 +18,14 @@ def calculate_rsi(hist, last_data=True, window=14):
     :param last_data: True 則回傳單一數值；False 則回傳整個 Series
     :param window: 計算視窗（預設 14）
     :return: RSI 數值 或 RSI Series
+    RSI 計算使用 EMA（Wilder's method）
     """
     delta = hist["Close"].diff()
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
 
-    avg_gain = gain.rolling(window=window).mean()
-    avg_loss = loss.rolling(window=window).mean()
+    avg_gain = gain.ewm(alpha=1/window, min_periods=window).mean()
+    avg_loss = loss.ewm(alpha=1/window, min_periods=window).mean()
 
     rs = avg_gain / avg_loss
     rsi_series = 100 - (100 / (1 + rs))
