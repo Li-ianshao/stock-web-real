@@ -1,12 +1,64 @@
 import os
 import pickle
+import numpy as np
+import pandas as pd
+import ta
 import yfinance as yf
 from datetime import datetime
+from django.http import JsonResponse
+from ta.momentum import RSIIndicator
 import pytz
 
 # 預設快取檔路徑
 CACHE_FILE = 'cache/sp500_data.pico'
 CACHE_DIR = 'cache/'
+
+def fetch_historical_data(symbol, period='10y', holding_days=[5, 10, 15, 20], goals=[2, 2.5, 3, 3.5, 4, 4.5, 5, 8, 10]):
+    df = yf.download(symbol, period=period, auto_adjust=True)
+
+    if df.empty or len(df) < 30:
+        return None
+
+    close_series = df['Close'].squeeze()
+    df['RSI'] = ta.momentum.RSIIndicator(close_series, window=14).rsi()
+    df.dropna(inplace=True)
+
+    signals = []
+  
+    for i in range(1, len(df) - max(holding_days)):
+        if df['RSI'].iloc[i-1] < 30 and df['RSI'].iloc[i] >= 30:
+            buy_date = df.index[i]
+            buy_price = float(df['Close'].iloc[i].item() if isinstance(df['Close'].iloc[i], pd.Series) else df['Close'].iloc[i])
+            row = [buy_date.strftime('%Y-%m-%d'), buy_price]
+            # 計算各持有日數的賣出價和報酬
+            for n in holding_days:
+                colName = 'High_' + str(n) + 'd'
+                df_temp = df[df.index > buy_date]
+            
+                df_nd = df_temp.head(n)
+                df_nd_High = df_nd['High'].max()
+                row.extend(df_nd_High)
+
+            signals.append(row)
+
+    if not signals:
+        return "近五年無 RSI 上穿 30 的事件"
+
+    # 整理 DataFrame
+    cols = ['BuyDate', 'BuyPrice']
+    for n in holding_days:
+        cols += [f'High_{n}d']
+    
+    signals_df = pd.DataFrame(signals, columns=cols)
+    signals_df = signals_df.round(2)
+
+    for n in holding_days:
+        for x in goals:
+            signals_df['G_' + str(x) + '%_' + str(n) + 'd'] = np.where(signals_df['High_' + str(n) + 'd'] > signals_df['BuyPrice'] * (1 + x/100), 1, 0)
+
+    signals_df.to_csv(f"RSI_Crossover30_{symbol}_signals.csv", index=False)
+
+    return signals_df
 
 def clear_all_pickles():
     print('clear_all_pickles')

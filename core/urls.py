@@ -8,5 +8,7 @@ urlpatterns = [
     path('bband/', views.tab_bband_view, name='tab_bband'),
     path('macd/', views.tab_macd_view, name='tab_macd'),
     path('drop/', views.tab_drop_view, name='tab_drop'),
+    path('rsicross/', views.stock_input_view, name='stock_input_view'),
+    path('api/stock/<str:symbol>/', views.stock_api, name='stock_api'),
     path('<str:symbol>/', views.stock_detail_view, name='stock_detail'),  # 詳細頁
 ]
