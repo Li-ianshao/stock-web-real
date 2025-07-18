@@ -29,7 +29,7 @@ def calculate_rsi(hist, last_data=True, window=14):
 
     rs = avg_gain / avg_loss
     rsi_series = 100 - (100 / (1 + rs))
-
+    
     if last_data:
         latest = rsi_series.iloc[-1]
         return round(latest, 2) if not pd.isna(latest) else 'N/A'

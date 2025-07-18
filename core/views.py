@@ -1,19 +1,120 @@
+import base64
+import io
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required 
 import json
 import pandas as pd
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles
+from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles, fetch_historical_data
 from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks, get_stock_data_by_symbol, calculate_bbands, calculate_rsi, calculate_macd
 from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from django.http import JsonResponse
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from matplotlib.font_manager import FontProperties
+ch_font = FontProperties(fname='C:/Windows/Fonts/msjh.ttc')  # Windows 微軟正黑體路徑
+import re
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
+
+def nan_to_none(obj):
+    if isinstance(obj, float) and np.isnan(obj):
+        return None
+    if isinstance(obj, dict):
+        return {k: nan_to_none(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [nan_to_none(v) for v in obj]
+    return obj
+
+def stock_api(request, symbol):
+    symbol = symbol.upper()
+    period = '10y'
+    stock_data = fetch_stock_data([symbol], period='1y')
+    print(stock_data)
+
+    holding_days = [5, 10, 15, 20]
+
+    historical_data = fetch_historical_data(symbol,period=period,holding_days=holding_days)
+
+    if historical_data is None or historical_data.empty:
+        return JsonResponse({"error": "無 RSI 資料或事件"}, status=400)
+    
+    # 
+    # return_cols = [f"Return_{n}d(%)" for n in holding_days]
+
+    # # 計算平均報酬
+    # mean_returns = historical_data[return_cols].mean()
+
+    # # 畫圖
+    # 抓目標和天數
+    goal_cols = [col for col in historical_data.columns if re.match(r'G_([\d\.]+)%_(\d+)d', col)]
+    goals = sorted({float(re.match(r'G_([\d\.]+)%', col).group(1)) for col in goal_cols})
+    days = sorted({int(re.match(r'G_[\d\.]+%_(\d+)d', col).group(1)) for col in goal_cols})
+
+    # 熱力圖
+    heatmap_data = pd.DataFrame(index=goals, columns=days)
+    for t in goals:
+        t_fmt = int(t) if t == int(t) else t
+        for d in days:
+            col = f'G_{t_fmt}%_{d}d'
+            if col in historical_data.columns:
+                heatmap_data.loc[t, d] = historical_data[col].mean() * 100
+    heatmap_data = heatmap_data.astype(float)
+
+    plt.figure(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10,6))
+    sns.heatmap(heatmap_data, annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
+    ax.set_title("每個獲利目標的達標率(%) vs 天數", fontproperties='Microsoft JhengHei')
+    ax.set_xlabel("持有天數", fontproperties='Microsoft JhengHei')
+    ax.set_ylabel("目標獲利率 (%)", fontproperties='Microsoft JhengHei')
+
+    # 儲存為 base64 圖片
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+    plt.close()
+
+
+    df = stock_data[symbol]['history'].copy()
+    df['Date'] = df.index.strftime('%Y-%m-%d')
+
+    # 加入各項技術指標欄位
+    df['upper_band'], df['lower_band'] = calculate_bbands(df)
+    df['rsi'] = calculate_rsi(df,False)
+    df['macd'], df['signal'], df['hist'] = calculate_macd(df['Close'])
+
+    df = df.where(pd.notnull(df), None)
+
+    price_data = df.to_dict(orient='records')
+    price_data = nan_to_none(price_data)  # 這步最重要！
+    
+    return JsonResponse({
+        "symbol": symbol,
+        'heatmap': img_base64,
+        "event_count": len(historical_data),
+        'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName'),
+        'sector': stock_data[symbol]['info'].get('sector'),
+        'industry': stock_data[symbol]['info'].get('industry'),
+        'trailingPE': stock_data[symbol]['info'].get('trailingPE'),
+        'forwardPE': stock_data[symbol]['info'].get('forwardPE'),
+        'averageVolume': stock_data[symbol]['info'].get('averageVolume'),
+        'website': stock_data[symbol]['info'].get('website'),
+        'price_data': price_data,
+    })
+
+def stock_input_view(request):
+    return render(request, 'core/RSI_Cross.html')
 
 def get_last_update_time():
     try:

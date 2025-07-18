@@ -26,6 +26,7 @@
         </div>
     </nav>
 
+    
     <!-- 頁籤按鈕區 -->
     <div class="bg-indigo-100 p-4 flex flex-wrap justify-center space-x-2 text-sm font-medium">
         {% with request.path as path %}
@@ -116,8 +117,51 @@
 
 <!-- 🔽 表格排序功能 -->
 <script>
+    let activeTab = null;
+
+    function addTab() {
+      const input = document.getElementById('symbol-input');
+      const symbol = input.value.trim().toUpperCase();
+      if (!symbol || document.getElementById(`tab-${symbol}`)) return;
+
+      // 新增 tab 導覽列按鈕
+      const tabHeader = document.getElementById('tab-header');
+      const newTab = document.createElement('button');
+      newTab.textContent = symbol;
+      newTab.className = "px-4 py-2 border rounded mr-2 bg-white hover:bg-gray-200";
+      newTab.id = `tab-${symbol}`;
+      newTab.onclick = () => switchTab(symbol);
+      tabHeader.appendChild(newTab);
+
+      // 預設不抓資料，等切換時再抓
+      input.value = '';
+    }
+
+    function switchTab(symbol) {
+      if (activeTab === symbol) return;
+      activeTab = symbol;
+
+      const content = document.getElementById('tab-content');
+      content.innerHTML = `<p class="text-gray-500">載入 ${symbol} 資料中...</p>`;
+
+      fetch(`/api/stock/${symbol}/`)
+        .then(res => res.json())
+        .then(data => {
+          content.innerHTML = `
+            <h2 class="text-xl font-bold mb-2">${data.symbol}</h2>
+            <p>這裡是你未來要顯示的分析資料區</p>
+          `;
+        })
+        .catch(err => {
+          content.innerHTML = `<p class="text-red-500">取得 ${symbol} 資料時發生錯誤</p>`;
+        });
+    }
+
+
+
     let sortOrder = 1;
     let lastSortedColumn = -1;
+    
     
 
     function sortTable(colKey) {
