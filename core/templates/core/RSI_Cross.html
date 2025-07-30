@@ -38,8 +38,10 @@
             }
 
             function getClassByValue(val, good, bad) {
-                if (val >= good) return "text-green-600 font-bold";
-                if (val <= bad) return "text-red-600 font-bold";
+                if (typeof val === "number" && !isNaN(val)){
+                    if (val >= good) return "text-green-600 font-bold";
+                    if (val <= bad) return "text-red-600 font-bold";
+                }
                 return "text-gray-800";
             }
 
@@ -245,7 +247,7 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
                                     <div>
                                         <span class="font-medium text-gray-600">自由現金流(free_cashflow)：</span> 
-                                        <span class="${getClassByValue( data.free_cashflow,0,0)}">${ data.free_cashflow.toLocaleString('en-US') }</span>
+                                        <span class="${getClassByValue( data.free_cashflow,0,0)}">${ data.free_cashflow ? data.free_cashflow.toLocaleString('en-US') : "No data" }</span>
                                         <div class="text-gray-400 mt-1">公司真正可自由運用的現金。正數代表可配息/還債/投資，負數需警覺。</div>
                                         <ul class="text-gray-400 list-disc list-inside">
                                             <li>長期為正才健康</li>
@@ -254,7 +256,7 @@
                                     </div>
                                     <div>
                                         <span class="font-medium text-gray-600">營運現金流(operating_cashflow)：</span> 
-                                        <span class="${getClassByValue( data.free_cashflow,0,0)}">${ data.operating_cashflow.toLocaleString('en-US') }</span>
+                                        <span class="${getClassByValue( data.free_cashflow,0,0)}">${ data.operating_cashflow ? data.operating_cashflow.toLocaleString('en-US') : "No data" }</span>
                                         <div class="text-gray-400 mt-1">公司營運帶來的現金流。長期正數代表業務穩健。</div>
                                         <ul class="text-gray-400 list-disc list-inside">
                                             <li>長期為正，公司營運良好</li>
@@ -298,79 +300,13 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 📈 股價變動與布林通道 圖區塊 -->
-                    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                        <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                            <div>
-                            <h3 class="text-base font-semibold text-gray-800">🕯️ 股價變動圖與布林通道（BBands）</h3>
-                            <p class="text-sm text-gray-500">顯示每日股價開盤、收盤、高低點與布林通道，幫助判斷股價波動範圍與壓力支撐位置。</p>
-                            </div>
-                            <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                        </div>
-
-                        <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                            <div id="chart-candle" class="relative w-full h-[600px] bg-white">
-                                <div id="candle-tooltip" style="min-width: 120px; max-width: 110px; max-height: 95px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- 📈 交易量 圖區塊 -->
-                    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                        <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                            <div>
-                            <h3 class="text-base font-semibold text-gray-800">📊 成交量（Volume）</h3>
-                            <p class="text-sm text-gray-500">呈現每日交易量，用來觀察市場活躍度與價量背離狀況。大量交易通常代表多空拉鋸或趨勢確認。</p>
-                            </div>
-                            <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                        </div>
-
-                        <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                            <div id="chart-volume" class="relative w-full h-[200px] bg-white mt-8">
-                                <div id="volume-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 📈 RSI 圖區塊 -->
-                    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                        <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                            <div>
-                            <h3 class="text-base font-semibold text-gray-800">📈 RSI 相對強弱指標</h3>
-                            <p class="text-sm text-gray-500">判斷股票是否過熱（超買）或過冷（超賣）</p>
-                            </div>
-                            <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                        </div>
-
-                        <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                            <div id="chart-rsi" class="relative w-full h-[200px] bg-white">
-                                <div id="rsi-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- 📈 MACD 圖區塊 -->
-                    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                        <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                            <div>
-                            <h3 class="text-base font-semibold text-gray-800">📉 MACD 指標</h3>
-                            <p class="text-sm text-gray-500">結合快速線與慢速線觀察多空轉折。柱狀圖顯示多空動能變化，線條交叉通常預示可能的趨勢反轉。</p>
-                            </div>
-                            <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                        </div>
-
-                        <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                            <div id="chart-macd" class="relative w-full h-[200px] bg-white mt-8">
-                                <div id="macd-tooltip" style="min-width: 120px; max-width: 110px; max-height: 75px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
-                            </div>
-                        </div>
-                    </div>
+                    <img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />
                     <img src="data:image/png;base64,${data.heatmap}" class="max-w-full border rounded shadow" />
+                    
                     `;
                     content.innerHTML = imgHTML;
 
-                    drawCandleChart(priceData)
-                    drawVolumeChart(priceData)
-                    drawRSIChart(priceData)
-                    drawMACDChart(priceData)
+                   
                 })
                 .catch(err => {
                     content.innerHTML = `<p class="text-red-500">取得 ${symbol} 資料時發生錯誤</p>`;
@@ -378,598 +314,610 @@
                 });
             }
 
-            function drawCandleChart(data) {
-                const margin = { top: 20, right: 40, bottom: 30, left: 50 },
-                    width = 1700 - margin.left - margin.right,
-                    height = 600 - margin.top - margin.bottom;
-                const svg = d3.select("#chart-candle")
-                    .append("svg")
-                    .attr("width", width + margin.left + margin.right)
-                    .attr("height", height + margin.top + margin.bottom)
-                    .append("g")
-                    .attr("transform", `translate(${margin.left},${margin.top})`);
-                // 轉換日期格式
-                const parseDate = d3.timeParse("%Y-%m-%d");
-                data.forEach(d => {
-                    console.log(d);
-                    d.date = parseDate(d.Date);
-                    d.Open = +d.Open;
-                    d.High = +d.High;
-                    d.Low = +d.Low;
-                    d.Close = +d.Close;
-                });
-                // 設定比例尺
-                const x = d3.scaleBand()
-                    .domain(data.map(d => d.date))
-                    .range([0, width])
-                    .padding(0.3);
-                const y = d3.scaleLinear()
-                    .domain([
-                        d3.min(data, d => d.Low),
-                        d3.max(data, d => d.High)
-                    ])
-                    .nice()
-                    .range([height, 0]);
-                // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
-                svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(x)
-                        .tickValues(filteredDates)
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
-                svg.append("g")
-                    .call(d3.axisLeft(y));
-                // 蠟燭圖本體
-                svg.selectAll("candlestick")
-                    .data(data)
-                    .enter()
-                    .append("line")
-                    .attr("x1", d => x(d.date) + x.bandwidth() / 2)
-                    .attr("x2", d => x(d.date) + x.bandwidth() / 2)
-                    .attr("y1", d => y(d.High))
-                    .attr("y2", d => y(d.Low))
-                    .attr("stroke", "black");
-                svg.selectAll("rect")
-                    .data(data)
-                    .enter()
-                    .append("rect")
-                    .attr("x", d => x(d.date))
-                    .attr("y", d => y(Math.max(d.Open, d.Close)))
-                    .attr("height", d => Math.abs(y(d.Open) - y(d.Close)))
-                    .attr("width", x.bandwidth())
-                    .attr("fill", d => d.Close > d.Open ? "#00b300" : "#e60000");
-                // 布林通道（上軌 & 下軌）
-                const lineUpper = d3.line()
-                    .defined(d => d.upper_band !== null && !isNaN(d.upper_band))
-                    .x(d => x(d.date) + x.bandwidth()/2)
-                    .y(d => y(d.upper_band));
+            // function drawCandleChart(data) {
+            //     const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+            //     const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+            //     const margin = { top: 20, right: 40, bottom: 30, left: 50};
+            //         width = baseW - margin.left - margin.right;
+            //         height = 600 - margin.top - margin.bottom;
+            //     const svg = d3.select("#chart-candle")
+            //         .append("svg")
+            //         .attr("width", "100%")
+            //         .attr("height", height)
+            //         .attr("viewBox", `0 0 ${width} ${height}`)
+            //         .attr("preserveAspectRatio", "none")
+            //         .append("g")
+            //         .attr("transform", `translate(${margin.left},${margin.top})`)
+                    
+            //     // 轉換日期格式
+            //     const parseDate = d3.timeParse("%Y-%m-%d");
+            //     data.forEach(d => {
+            //         console.log(d);
+            //         d.date = parseDate(d.Date);
+            //         d.Open = +d.Open;
+            //         d.High = +d.High;
+            //         d.Low = +d.Low;
+            //         d.Close = +d.Close;
+            //     });
+            //     // 設定比例尺
+            //     const x = d3.scaleBand()
+            //         .domain(data.map(d => d.date))
+            //         .range([0, width])
+            //         .padding(0.3);
+            //     const y = d3.scaleLinear()
+            //         .domain([
+            //             d3.min(data, d => d.Low),
+            //             d3.max(data, d => d.High)
+            //         ])
+            //         .nice()
+            //         .range([height, 0]);
+            //     // X軸 & Y軸
+            //     const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+            //     svg.append("g")
+            //         .attr("transform", `translate(0,${height})`)
+            //         .call(d3.axisBottom(x)
+            //             .tickValues(filteredDates)
+            //             .tickFormat(d3.timeFormat("%m/%d"))
+            //         );
+            //     svg.append("g")
+            //         .call(d3.axisLeft(y));
+            //     // 蠟燭圖本體
+            //     svg.selectAll("candlestick")
+            //         .data(data)
+            //         .enter()
+            //         .append("line")
+            //         .attr("x1", d => x(d.date) + x.bandwidth() / 2)
+            //         .attr("x2", d => x(d.date) + x.bandwidth() / 2)
+            //         .attr("y1", d => y(d.High))
+            //         .attr("y2", d => y(d.Low))
+            //         .attr("stroke", "black");
+            //     svg.selectAll("rect")
+            //         .data(data)
+            //         .enter()
+            //         .append("rect")
+            //         .attr("x", d => x(d.date))
+            //         .attr("y", d => y(Math.max(d.Open, d.Close)))
+            //         .attr("height", d => Math.abs(y(d.Open) - y(d.Close)))
+            //         .attr("width", x.bandwidth())
+            //         .attr("fill", d => d.Close > d.Open ? "#00b300" : "#e60000");
+            //     // 布林通道（上軌 & 下軌）
+            //     const lineUpper = d3.line()
+            //         .defined(d => d.upper_band !== null && !isNaN(d.upper_band))
+            //         .x(d => x(d.date) + x.bandwidth()/2)
+            //         .y(d => y(d.upper_band));
 
-                svg.append("path")
-                    .datum(data)
-                    .attr("fill", "none")
-                    .attr("stroke", "steelblue")
-                    .attr("stroke-width", 1.5)
-                    .attr("d", lineUpper);
+            //     svg.append("path")
+            //         .datum(data)
+            //         .attr("fill", "none")
+            //         .attr("stroke", "steelblue")
+            //         .attr("stroke-width", 1.5)
+            //         .attr("d", lineUpper);
 
-                const lineLower = d3.line()
-                    .defined(d => d.lower_band !== null && !isNaN(d.lower_band))
-                    .x(d => x(d.date) + x.bandwidth()/2)
-                    .y(d => y(d.lower_band));
+            //     const lineLower = d3.line()
+            //         .defined(d => d.lower_band !== null && !isNaN(d.lower_band))
+            //         .x(d => x(d.date) + x.bandwidth()/2)
+            //         .y(d => y(d.lower_band));
 
-                svg.append("path")
-                    .datum(data)
-                    .attr("fill", "none")
-                    .attr("stroke", "orange")
-                    .attr("stroke-width", 1.5)
-                    .attr("d", lineLower);
+            //     svg.append("path")
+            //         .datum(data)
+            //         .attr("fill", "none")
+            //         .attr("stroke", "orange")
+            //         .attr("stroke-width", 1.5)
+            //         .attr("d", lineLower);
 
-                // 十字線
-                const crosshairV = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
+            //     // 十字線
+            //     const crosshairV = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
 
-                const crosshairH = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
-                // 事件感知區
-                svg.append("rect")
-                    .attr("width", width)
-                    .attr("height", height)
-                    .attr("fill", "none")
-                    .attr("pointer-events", "all")
-                    .on("mousemove", handleMove)
-                    .on("touchmove", handleMove)
-                    .on("click", handleMove);
-                function handleMove(event) {
-                    console.log("觸發事件");
-                    const [mx, my] = d3.pointer(event, svg.node());
+            //     const crosshairH = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
+            //     // 事件感知區
+            //     svg.append("rect")
+            //         .attr("width", width)
+            //         .attr("height", height)
+            //         .attr("fill", "none")
+            //         .attr("pointer-events", "all")
+            //         .on("mousemove", handleMove)
+            //         .on("touchmove", handleMove)    
+            //         .on("click", handleMove);
 
-                    const bisectDate = d3.bisector(d => d.date).left;
-                    const xDate = x.invert ? x.invert(mx) : new Date(x.domain()[Math.floor(mx / x.step())]);
-                    const idx = bisectDate(data, xDate);
-                    const d = data[idx];
+            //     function handleMove(event) {
+            //         console.log("觸發事件");
+            //         const [mx, my] = d3.pointer(event, svg.node());
+
+            //         const bisectDate = d3.bisector(d => d.date).left;
+            //         const xDate = x.invert ? x.invert(mx) : new Date(x.domain()[Math.floor(mx / x.step())]);
+            //         const idx = bisectDate(data, xDate);
+            //         const d = data[idx];
                     
 
-                    if (!d || !d.date) return;
+            //         if (!d || !d.date) return;
 
-                    const cx = x(d.date) + x.bandwidth() / 2;
-                    const cy = y(d.Close);
+            //         const cx = x(d.date) + x.bandwidth() / 2;
+            //         const cy = y(d.Close);
 
-                    // 顯示十字線
-                    crosshairV
-                        .attr("x1", cx)
-                        .attr("x2", cx)
-                        .attr("y1", 0)
-                        .attr("y2", height)
-                        .style("display", "block");
+            //         // 顯示十字線
+            //         crosshairV
+            //             .attr("x1", cx)
+            //             .attr("x2", cx)
+            //             .attr("y1", 0)
+            //             .attr("y2", height)
+            //             .style("display", "block");
 
-                    crosshairH
-                        .attr("x1", 0)
-                        .attr("x2", width)
-                        .attr("y1", cy)
-                        .attr("y2", cy)
-                        .style("display", "block");
+            //         crosshairH
+            //             .attr("x1", 0)
+            //             .attr("x2", width)
+            //             .attr("y1", cy)
+            //             .attr("y2", cy)
+            //             .style("display", "block");
 
-                    // 顯示資訊框
-                    const box = document.getElementById("candle-tooltip");
-                    const boxWidth = 110;  // 你設定的 tooltip 寬度
-                    const offset = 10;
+            //         // 顯示資訊框
+            //         const box = document.getElementById("candle-tooltip");
+            //         const boxWidth = 110;  // 你設定的 tooltip 寬度
+            //         const offset = 10;
 
-                    const svgRect = svg.node().getBoundingClientRect();
+            //         const svgRect = svg.node().getBoundingClientRect();
 
-                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
-                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
-
-                    
-                    box.innerHTML = `
-                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
-                        <div>Open: ${d.Open?.toFixed(2)}</div>
-                        <div>High: ${d.High?.toFixed(2)}</div>
-                        <div>Low: ${d.Low?.toFixed(2)}</div>
-                        <div>Close: ${d.Close?.toFixed(2)}</div>
-                    `;
-                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
-                    box.style.left = `${leftPos+40}px`;
-                    box.style.top = `${my + offset-5}px`;
-                    box.style.position = "absolute";
-                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
-                    box.classList.remove("hidden");
-                }
-            }
-
-            function drawVolumeChart(data) {
-                const margin = { top: 10, right: 40, bottom: 20, left: 50 },
-                    width = 900 - margin.left - margin.right,
-                    height = 200 - margin.top - margin.bottom;
-
-                const svg = d3.select("#chart-volume")
-                    .append("svg")
-                    .attr("width", width + margin.left + margin.right)
-                    .attr("height", height + margin.top + margin.bottom)
-                    .append("g")
-                    .attr("transform", `translate(${margin.left},${margin.top})`);
-
-                const parseDate = d3.timeParse("%Y-%m-%d");
-                data.forEach(d => {
-                    d.date = parseDate(d.Date);
-                    d.Volume = +d.Volume;
-                });
-
-                const x = d3.scaleBand()
-                    .domain(data.map(d => d.date))
-                    .range([0, width])
-                    .padding(0.2);
-
-                const y = d3.scaleLinear()
-                    .domain([0, d3.max(data, d => d.Volume)])
-                    .nice()
-                    .range([height, 0]);
-
-                // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
-
-                svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(x)
-                        .tickValues(filteredDates)
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
-
-                svg.append("g")
-                    .call(d3.axisLeft(y));
-
-                svg.selectAll("rect")
-                    .data(data)
-                    .enter()
-                    .append("rect")
-                    .attr("x", d => x(d.date))
-                    .attr("y", d => y(d.Volume))
-                    .attr("width", x.bandwidth())
-                    .attr("height", d => height - y(d.Volume))
-                    .attr("fill", "#4a90e2");
-
-                // 十字線共用邏輯（重複使用）
-                const crosshairV = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
-
-                const crosshairH = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
-
-                svg.append("rect")
-                    .attr("width", width)
-                    .attr("height", height)
-                    .attr("fill", "none")
-                    .attr("pointer-events", "all")
-                    .on("mousemove", handleMove)
-                    .on("touchmove", handleMove)
-                    .on("click", handleMove);
-
-                function handleMove(event) {
-                    const [mx, my] = d3.pointer(event, svg.node());
-                    const bisectDate = d3.bisector(d => d.date).left;
-                    const xDate = x.domain()[Math.floor(mx / x.step())];
-                    const idx = bisectDate(data, xDate);
-                    const d = data[idx];
-
-                    if (!d || !d.date) return;
-
-                    const cx = x(d.date) + x.bandwidth() / 2;
-                    const cy = y(d.Volume);
-
-                    crosshairV
-                        .attr("x1", cx)
-                        .attr("x2", cx)
-                        .attr("y1", 0)
-                        .attr("y2", height)
-                        .style("display", "block");
-
-                    crosshairH
-                        .attr("x1", 0)
-                        .attr("x2", width)
-                        .attr("y1", cy)
-                        .attr("y2", cy)
-                        .style("display", "block");
-
-                    const box = document.getElementById("volume-tooltip");
-                    const boxWidth = 110;  // 你設定的 tooltip 寬度
-                    const offset = 10;
-
-                    const svgRect = svg.node().getBoundingClientRect();
-
-                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
-                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+            //         // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            //         const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
 
                     
-                    box.innerHTML = `
-                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
-                        <div>Volume: ${d.Volume.toLocaleString()}</div>
-                    `;
-                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
-                    box.style.left = `${leftPos+40}px`;
-                    box.style.top = `${my + offset-5}px`;
-                    box.style.position = "absolute";
-                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
-                    box.classList.remove("hidden");
-                }
-            }
+            //         box.innerHTML = `
+            //             <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+            //             <div>Open: ${d.Open?.toFixed(2)}</div>
+            //             <div>High: ${d.High?.toFixed(2)}</div>
+            //             <div>Low: ${d.Low?.toFixed(2)}</div>
+            //             <div>Close: ${d.Close?.toFixed(2)}</div>
+            //         `;
+            //         // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            //         box.style.left = `${leftPos+40}px`;
+            //         box.style.top = `${my + offset-5}px`;
+            //         box.style.position = "absolute";
+            //         box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+            //         box.classList.remove("hidden");
+            //     }
+            // }
 
-            function drawRSIChart(data) {
-                const margin = { top: 10, right: 40, bottom: 20, left: 50 },
-                    width = 900 - margin.left - margin.right,
-                    height = 200 - margin.top - margin.bottom;
+            // function drawVolumeChart(data) {
+            //     const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+            //     const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+            //     const margin = { top: 20, right: 40, bottom: 30, left: 50},
+            //         width = baseW - margin.left - margin.right;
+            //         height = 600 - margin.top - margin.bottom;
 
-                const svg = d3.select("#chart-rsi")
-                    .append("svg")
-                    .attr("width", width + margin.left + margin.right)
-                    .attr("height", height + margin.top + margin.bottom)
-                    .append("g")
-                    .attr("transform", `translate(${margin.left},${margin.top})`);
+            //     const svg = d3.select("#chart-volume")
+            //         .append("svg")
+            //         .attr("width", width + margin.left + margin.right)
+            //         .attr("height", height + margin.top + margin.bottom)
+            //         .append("g")
+            //         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-                const parseDate = d3.timeParse("%Y-%m-%d");
-                data.forEach(d => {
-                    d.date = parseDate(d.Date);
-                    d.rsi = +d.rsi;
-                });
+            //     const parseDate = d3.timeParse("%Y-%m-%d");
+            //     data.forEach(d => {
+            //         d.date = parseDate(d.Date);
+            //         d.Volume = +d.Volume;
+            //     });
 
-                const x = d3.scaleBand()
-                    .domain(data.map(d => d.date))
-                    .range([0, width]);
+            //     const x = d3.scaleBand()
+            //         .domain(data.map(d => d.date))
+            //         .range([0, width])
+            //         .padding(0.2);
 
-                const y = d3.scaleLinear()
-                    .domain([0, 100])
-                    .range([height, 0]);
+            //     const y = d3.scaleLinear()
+            //         .domain([0, d3.max(data, d => d.Volume)])
+            //         .nice()
+            //         .range([height, 0]);
 
-                // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+            //     // X軸 & Y軸
+            //     const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
 
-                svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(x)
-                        .tickValues(filteredDates)
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
+            //     svg.append("g")
+            //         .attr("transform", `translate(0,${height})`)
+            //         .call(d3.axisBottom(x)
+            //             .tickValues(filteredDates)
+            //             .tickFormat(d3.timeFormat("%m/%d"))
+            //         );
 
-                svg.append("g").call(d3.axisLeft(y));
+            //     svg.append("g")
+            //         .call(d3.axisLeft(y));
 
-                // RSI 折線
-                const rsiLine = d3.line()
-                    .defined(d => d.rsi !== null && !isNaN(d.rsi))
-                    .x(d => x(d.date) + x.bandwidth() / 2)
-                    .y(d => y(d.rsi));
+            //     svg.selectAll("rect")
+            //         .data(data)
+            //         .enter()
+            //         .append("rect")
+            //         .attr("x", d => x(d.date))
+            //         .attr("y", d => y(d.Volume))
+            //         .attr("width", x.bandwidth())
+            //         .attr("height", d => height - y(d.Volume))
+            //         .attr("fill", "#4a90e2");
 
-                svg.append("path")
-                    .datum(data)
-                    .attr("fill", "none")
-                    .attr("stroke", "purple")
-                    .attr("stroke-width", 2)
-                    .attr("d", rsiLine);
+            //     // 十字線共用邏輯（重複使用）
+            //     const crosshairV = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
 
-                // 超買/超賣區
-                svg.append("line") // 超買線
-                    .attr("x1", 0)
-                    .attr("x2", width)
-                    .attr("y1", y(70))
-                    .attr("y2", y(70))
-                    .attr("stroke", "red")
-                    .attr("stroke-dasharray", "4 2");
+            //     const crosshairH = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
 
-                svg.append("line") // 超賣線
-                    .attr("x1", 0)
-                    .attr("x2", width)
-                    .attr("y1", y(30))
-                    .attr("y2", y(30))
-                    .attr("stroke", "green")
-                    .attr("stroke-dasharray", "4 2");
+            //     svg.append("rect")
+            //         .attr("width", width)
+            //         .attr("height", height)
+            //         .attr("fill", "none")
+            //         .attr("pointer-events", "all")
+            //         .on("mousemove", handleMove)
+            //         .on("touchmove", handleMove)
+            //         .on("click", handleMove);
 
-                // 十字線
-                const crosshairV = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
+            //     function handleMove(event) {
+            //         const [mx, my] = d3.pointer(event, svg.node());
+            //         const bisectDate = d3.bisector(d => d.date).left;
+            //         const xDate = x.domain()[Math.floor(mx / x.step())];
+            //         const idx = bisectDate(data, xDate);
+            //         const d = data[idx];
 
-                const crosshairH = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
+            //         if (!d || !d.date) return;
 
-                // 互動感知區
-                svg.append("rect")
-                    .attr("width", width)
-                    .attr("height", height)
-                    .attr("fill", "none")
-                    .attr("pointer-events", "all")
-                    .on("mousemove", handleMove)
-                    .on("touchmove", handleMove)
-                    .on("click", handleMove);
+            //         const cx = x(d.date) + x.bandwidth() / 2;
+            //         const cy = y(d.Volume);
 
-                function handleMove(event) {
-                    const [mx, my] = d3.pointer(event, svg.node());
-                    const bisectDate = d3.bisector(d => d.date).left;
-                    const xDate = x.domain()[Math.floor(mx / x.step())];
-                    const idx = bisectDate(data, xDate);
-                    const d = data[idx];
+            //         crosshairV
+            //             .attr("x1", cx)
+            //             .attr("x2", cx)
+            //             .attr("y1", 0)
+            //             .attr("y2", height)
+            //             .style("display", "block");
 
-                    if (!d || d.rsi == null) return;
+            //         crosshairH
+            //             .attr("x1", 0)
+            //             .attr("x2", width)
+            //             .attr("y1", cy)
+            //             .attr("y2", cy)
+            //             .style("display", "block");
 
-                    const cx = x(d.date) + x.bandwidth() / 2;
-                    const cy = y(d.rsi);
+            //         const box = document.getElementById("volume-tooltip");
+            //         const boxWidth = 110;  // 你設定的 tooltip 寬度
+            //         const offset = 10;
 
-                    crosshairV
-                        .attr("x1", cx)
-                        .attr("x2", cx)
-                        .attr("y1", 0)
-                        .attr("y2", height)
-                        .style("display", "block");
+            //         const svgRect = svg.node().getBoundingClientRect();
 
-                    crosshairH
-                        .attr("x1", 0)
-                        .attr("x2", width)
-                        .attr("y1", cy)
-                        .attr("y2", cy)
-                        .style("display", "block");
-
-                    const box = document.getElementById("rsi-tooltip");
-                    const boxWidth = 110;  // 你設定的 tooltip 寬度
-                    const offset = 10;
-
-                    const svgRect = svg.node().getBoundingClientRect();
-
-                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
-                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
-                    box.innerHTML = `
-                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
-                        <div>RSI: ${d.rsi.toFixed(2)}</div>
-                    `;
-                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
-                    box.style.left = `${leftPos+40}px`;
-                    box.style.top = `${my + offset-5}px`;
-                    box.style.position = "absolute";
-                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
-                    box.classList.remove("hidden");
-                }
-            }
-
-            function drawMACDChart(data) {
-                const margin = { top: 10, right: 40, bottom: 20, left: 50 },
-                    width = 900 - margin.left - margin.right,
-                    height = 200 - margin.top - margin.bottom;
-
-                const svg = d3.select("#chart-macd")
-                    .append("svg")
-                    .attr("width", width + margin.left + margin.right)
-                    .attr("height", height + margin.top + margin.bottom)
-                    .append("g")
-                    .attr("transform", `translate(${margin.left},${margin.top})`);
-
-                const parseDate = d3.timeParse("%Y-%m-%d");
-                data.forEach(d => {
-                    d.date = parseDate(d.Date);
-                    d.hist = +d.hist;
-                    d.macd = +d.macd;
-                    d.signal = +d.signal;
-                });
-
-                const x = d3.scaleBand()
-                    .domain(data.map(d => d.date))
-                    .range([0, width])
-                    .padding(0.1);
-
-                const y = d3.scaleLinear()
-                    .domain([
-                        d3.min(data, d => Math.min(d.hist, d.macd, d.signal, 0)),
-                        d3.max(data, d => Math.max(d.hist, d.macd, d.signal, 0))
-                    ])
-                    .nice()
-                    .range([height, 0]);
-
-                // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
-
-                svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(x)
-                        .tickValues(filteredDates)
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
-
-                svg.append("g").call(d3.axisLeft(y));
-
-                // 0 軸線
-                svg.append("line")
-                    .attr("x1", 0)
-                    .attr("x2", width)
-                    .attr("y1", y(0))
-                    .attr("y2", y(0))
-                    .attr("stroke", "#aaa")
-                    .attr("stroke-dasharray", "3 2");
-
-                // 柱狀圖（hist）
-                svg.selectAll("rect")
-                    .data(data)
-                    .enter()
-                    .append("rect")
-                    .attr("x", d => x(d.date))
-                    .attr("y", d => y(Math.max(0, d.hist)))
-                    .attr("width", x.bandwidth())
-                    .attr("height", d => Math.abs(y(d.hist) - y(0)))
-                    .attr("fill", (d, i) => {
-                        if (i === 0 || isNaN(data[i - 1].hist)) return "#ccc";  // 第一天無法比較
-                        return d.hist > data[i - 1].hist ? "#4CAF50" : "#ff4d4d";  // 綠上紅下
-                    });
-
-                // MACD 曲線
-                const macdLine = d3.line()
-                    .defined(d => d.macd !== null && !isNaN(d.macd))
-                    .x(d => x(d.date) + x.bandwidth() / 2)
-                    .y(d => y(d.macd));
-
-                svg.append("path")
-                    .datum(data)
-                    .attr("fill", "none")
-                    .attr("stroke", "purple")
-                    .attr("stroke-width", 2)
-                    .attr("d", macdLine);
-
-                // Signal 曲線
-                const signalLine = d3.line()
-                    .defined(d => d.signal !== null && !isNaN(d.signal))
-                    .x(d => x(d.date) + x.bandwidth() / 2)
-                    .y(d => y(d.signal));
-
-                svg.append("path")
-                    .datum(data)
-                    .attr("fill", "none")
-                    .attr("stroke", "orange")
-                    .attr("stroke-width", 2)
-                    .attr("d", signalLine);
-
-                // 十字線
-                const crosshairV = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
-
-                const crosshairH = svg.append("line")
-                    .attr("stroke", "#999")
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3 3")
-                    .style("display", "none");
-
-                // 感知區域
-                svg.append("rect")
-                    .attr("width", width)
-                    .attr("height", height)
-                    .attr("fill", "none")
-                    .attr("pointer-events", "all")
-                    .on("mousemove", handleMove)
-                    .on("touchmove", handleMove)
-                    .on("click", handleMove);
-
-                function handleMove(event) {
-                    const [mx, my] = d3.pointer(event, svg.node());
-                    const bisectDate = d3.bisector(d => d.date).left;
-                    const xDate = x.domain()[Math.floor(mx / x.step())];
-                    const idx = bisectDate(data, xDate);
-                    const d = data[idx];
-                    
-                    if (!d || d.macd == null) return;
-
-                    const cx = x(d.date) + x.bandwidth() / 2;
-                    const cy = y(d.hist);
-
-                    crosshairV
-                        .attr("x1", cx)
-                        .attr("x2", cx)
-                        .attr("y1", 0)
-                        .attr("y2", height)
-                        .style("display", "block");
-
-                    crosshairH
-                        .attr("x1", 0)
-                        .attr("x2", width)
-                        .attr("y1", cy)
-                        .attr("y2", cy)
-                        .style("display", "block");
-
-                    const box = document.getElementById("macd-tooltip");
-                    const boxWidth = 110;  // 你設定的 tooltip 寬度
-                    const offset = 10;
-
-                    const svgRect = svg.node().getBoundingClientRect();
-                    
-
-                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
-                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+            //         // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            //         const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
 
                     
-                    box.innerHTML = `
-                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
-                        <div>MACD: ${d.macd.toFixed(2)}</div>
-                        <div>Signal: ${d.signal.toFixed(2)}</div>
-                        <div>Hist: ${d.hist.toFixed(2)}</div>
-                    `;
-                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
-                    box.style.left = `${leftPos+40}px`;
-                    box.style.top = `${my + offset-5}px`;
-                    box.style.position = "absolute";
-                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
-                    box.classList.remove("hidden");
-                }
-            }
+            //         box.innerHTML = `
+            //             <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+            //             <div>Volume: ${d.Volume.toLocaleString()}</div>
+            //         `;
+            //         // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            //         box.style.left = `${leftPos+40}px`;
+            //         box.style.top = `${my + offset-5}px`;
+            //         box.style.position = "absolute";
+            //         box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+            //         box.classList.remove("hidden");
+            //     }
+            // }
+
+            // function drawRSIChart(data) {
+            //     const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+            //     const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+            //     const margin = { top: 20, right: 40, bottom: 30, left: 50},
+            //         width = baseW - margin.left - margin.right;
+            //         height = 600 - margin.top - margin.bottom;
+
+            //     const svg = d3.select("#chart-rsi")
+            //         .append("svg")
+            //         .attr("width", width + margin.left + margin.right)
+            //         .attr("height", height + margin.top + margin.bottom)
+            //         .append("g")
+            //         .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            //     const parseDate = d3.timeParse("%Y-%m-%d");
+            //     data.forEach(d => {
+            //         d.date = parseDate(d.Date);
+            //         d.rsi = +d.rsi;
+            //     });
+
+            //     const x = d3.scaleBand()
+            //         .domain(data.map(d => d.date))
+            //         .range([0, width]);
+
+            //     const y = d3.scaleLinear()
+            //         .domain([0, 100])
+            //         .range([height, 0]);
+
+            //     // X軸 & Y軸
+            //     const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+
+            //     svg.append("g")
+            //         .attr("transform", `translate(0,${height})`)
+            //         .call(d3.axisBottom(x)
+            //             .tickValues(filteredDates)
+            //             .tickFormat(d3.timeFormat("%m/%d"))
+            //         );
+
+            //     svg.append("g").call(d3.axisLeft(y));
+
+            //     // RSI 折線
+            //     const rsiLine = d3.line()
+            //         .defined(d => d.rsi !== null && !isNaN(d.rsi))
+            //         .x(d => x(d.date) + x.bandwidth() / 2)
+            //         .y(d => y(d.rsi));
+
+            //     svg.append("path")
+            //         .datum(data)
+            //         .attr("fill", "none")
+            //         .attr("stroke", "purple")
+            //         .attr("stroke-width", 2)
+            //         .attr("d", rsiLine);
+
+            //     // 超買/超賣區
+            //     svg.append("line") // 超買線
+            //         .attr("x1", 0)
+            //         .attr("x2", width)
+            //         .attr("y1", y(70))
+            //         .attr("y2", y(70))
+            //         .attr("stroke", "red")
+            //         .attr("stroke-dasharray", "4 2");
+
+            //     svg.append("line") // 超賣線
+            //         .attr("x1", 0)
+            //         .attr("x2", width)
+            //         .attr("y1", y(30))
+            //         .attr("y2", y(30))
+            //         .attr("stroke", "green")
+            //         .attr("stroke-dasharray", "4 2");
+
+            //     // 十字線
+            //     const crosshairV = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
+
+            //     const crosshairH = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
+
+            //     // 互動感知區
+            //     svg.append("rect")
+            //         .attr("width", width)
+            //         .attr("height", height)
+            //         .attr("fill", "none")
+            //         .attr("pointer-events", "all")
+            //         .on("mousemove", handleMove)
+            //         .on("touchmove", handleMove)
+            //         .on("click", handleMove);
+
+            //     function handleMove(event) {
+            //         const [mx, my] = d3.pointer(event, svg.node());
+            //         const bisectDate = d3.bisector(d => d.date).left;
+            //         const xDate = x.domain()[Math.floor(mx / x.step())];
+            //         const idx = bisectDate(data, xDate);
+            //         const d = data[idx];
+
+            //         if (!d || d.rsi == null) return;
+
+            //         const cx = x(d.date) + x.bandwidth() / 2;
+            //         const cy = y(d.rsi);
+
+            //         crosshairV
+            //             .attr("x1", cx)
+            //             .attr("x2", cx)
+            //             .attr("y1", 0)
+            //             .attr("y2", height)
+            //             .style("display", "block");
+
+            //         crosshairH
+            //             .attr("x1", 0)
+            //             .attr("x2", width)
+            //             .attr("y1", cy)
+            //             .attr("y2", cy)
+            //             .style("display", "block");
+
+            //         const box = document.getElementById("rsi-tooltip");
+            //         const boxWidth = 110;  // 你設定的 tooltip 寬度
+            //         const offset = 10;
+
+            //         const svgRect = svg.node().getBoundingClientRect();
+
+            //         // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            //         const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+            //         box.innerHTML = `
+            //             <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+            //             <div>RSI: ${d.rsi.toFixed(2)}</div>
+            //         `;
+            //         // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            //         box.style.left = `${leftPos+40}px`;
+            //         box.style.top = `${my + offset-5}px`;
+            //         box.style.position = "absolute";
+            //         box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+            //         box.classList.remove("hidden");
+            //     }
+            // }
+
+            // function drawMACDChart(data) {
+            //     const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+            //     const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+            //     const margin = { top: 20, right: 40, bottom: 30, left: 50},
+            //         width = baseW - margin.left - margin.right;
+            //         height = 600 - margin.top - margin.bottom;
+
+            //     const svg = d3.select("#chart-macd")
+            //         .append("svg")
+            //         .attr("width", width + margin.left + margin.right)
+            //         .attr("height", height + margin.top + margin.bottom)
+            //         .append("g")
+            //         .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            //     const parseDate = d3.timeParse("%Y-%m-%d");
+            //     data.forEach(d => {
+            //         d.date = parseDate(d.Date);
+            //         d.hist = +d.hist;
+            //         d.macd = +d.macd;
+            //         d.signal = +d.signal;
+            //     });
+
+            //     const x = d3.scaleBand()
+            //         .domain(data.map(d => d.date))
+            //         .range([0, width])
+            //         .padding(0.1);
+
+            //     const y = d3.scaleLinear()
+            //         .domain([
+            //             d3.min(data, d => Math.min(d.hist, d.macd, d.signal, 0)),
+            //             d3.max(data, d => Math.max(d.hist, d.macd, d.signal, 0))
+            //         ])
+            //         .nice()
+            //         .range([height, 0]);
+
+            //     // X軸 & Y軸
+            //     const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+
+            //     svg.append("g")
+            //         .attr("transform", `translate(0,${height})`)
+            //         .call(d3.axisBottom(x)
+            //             .tickValues(filteredDates)
+            //             .tickFormat(d3.timeFormat("%m/%d"))
+            //         );
+
+            //     svg.append("g").call(d3.axisLeft(y));
+
+            //     // 0 軸線
+            //     svg.append("line")
+            //         .attr("x1", 0)
+            //         .attr("x2", width)
+            //         .attr("y1", y(0))
+            //         .attr("y2", y(0))
+            //         .attr("stroke", "#aaa")
+            //         .attr("stroke-dasharray", "3 2");
+
+            //     // 柱狀圖（hist）
+            //     svg.selectAll("rect")
+            //         .data(data)
+            //         .enter()
+            //         .append("rect")
+            //         .attr("x", d => x(d.date))
+            //         .attr("y", d => y(Math.max(0, d.hist)))
+            //         .attr("width", x.bandwidth())
+            //         .attr("height", d => Math.abs(y(d.hist) - y(0)))
+            //         .attr("fill", (d, i) => {
+            //             if (i === 0 || isNaN(data[i - 1].hist)) return "#ccc";  // 第一天無法比較
+            //             return d.hist > data[i - 1].hist ? "#4CAF50" : "#ff4d4d";  // 綠上紅下
+            //         });
+
+            //     // MACD 曲線
+            //     const macdLine = d3.line()
+            //         .defined(d => d.macd !== null && !isNaN(d.macd))
+            //         .x(d => x(d.date) + x.bandwidth() / 2)
+            //         .y(d => y(d.macd));
+
+            //     svg.append("path")
+            //         .datum(data)
+            //         .attr("fill", "none")
+            //         .attr("stroke", "purple")
+            //         .attr("stroke-width", 2)
+            //         .attr("d", macdLine);
+
+            //     // Signal 曲線
+            //     const signalLine = d3.line()
+            //         .defined(d => d.signal !== null && !isNaN(d.signal))
+            //         .x(d => x(d.date) + x.bandwidth() / 2)
+            //         .y(d => y(d.signal));
+
+            //     svg.append("path")
+            //         .datum(data)
+            //         .attr("fill", "none")
+            //         .attr("stroke", "orange")
+            //         .attr("stroke-width", 2)
+            //         .attr("d", signalLine);
+
+            //     // 十字線
+            //     const crosshairV = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
+
+            //     const crosshairH = svg.append("line")
+            //         .attr("stroke", "#999")
+            //         .attr("stroke-width", 1)
+            //         .attr("stroke-dasharray", "3 3")
+            //         .style("display", "none");
+
+            //     // 感知區域
+            //     svg.append("rect")
+            //         .attr("width", width)
+            //         .attr("height", height)
+            //         .attr("fill", "none")
+            //         .attr("pointer-events", "all")
+            //         .on("mousemove", handleMove)
+            //         .on("touchmove", handleMove)
+            //         .on("click", handleMove);
+
+            //     function handleMove(event) {
+            //         const [mx, my] = d3.pointer(event, svg.node());
+            //         const bisectDate = d3.bisector(d => d.date).left;
+            //         const xDate = x.domain()[Math.floor(mx / x.step())];
+            //         const idx = bisectDate(data, xDate);
+            //         const d = data[idx];
+                    
+            //         if (!d || d.macd == null) return;
+
+            //         const cx = x(d.date) + x.bandwidth() / 2;
+            //         const cy = y(d.hist);
+
+            //         crosshairV
+            //             .attr("x1", cx)
+            //             .attr("x2", cx)
+            //             .attr("y1", 0)
+            //             .attr("y2", height)
+            //             .style("display", "block");
+
+            //         crosshairH
+            //             .attr("x1", 0)
+            //             .attr("x2", width)
+            //             .attr("y1", cy)
+            //             .attr("y2", cy)
+            //             .style("display", "block");
+
+            //         const box = document.getElementById("macd-tooltip");
+            //         const boxWidth = 110;  // 你設定的 tooltip 寬度
+            //         const offset = 10;
+
+            //         const svgRect = svg.node().getBoundingClientRect();
+                    
+
+            //         // 讓 tooltip 出現在滑鼠左側（靠左邊）
+            //         const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+                    
+            //         box.innerHTML = `
+            //             <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+            //             <div>MACD: ${d.macd.toFixed(2)}</div>
+            //             <div>Signal: ${d.signal.toFixed(2)}</div>
+            //             <div>Hist: ${d.hist.toFixed(2)}</div>
+            //         `;
+            //         // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+            //         box.style.left = `${leftPos+40}px`;
+            //         box.style.top = `${my + offset-5}px`;
+            //         box.style.position = "absolute";
+            //         box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+            //         box.classList.remove("hidden");
+            //     }
+            // }
 
             function closeTab(symbol) {
                 const tab = document.getElementById(`tab-${symbol}`);
