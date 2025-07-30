@@ -187,9 +187,9 @@ def stock_api(request, symbol):
     plt.figure(figsize=(10, 6))
     fig, ax = plt.subplots(figsize=(10,6))
     sns.heatmap(heatmap_data.iloc[::-1], annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
-    ax.set_title("每個獲利目標的達標率(%) vs 天數", fontproperties='Noto Sans CJK TC')
-    ax.set_xlabel("持有天數", fontproperties='Noto Sans CJK TC')
-    ax.set_ylabel("目標獲利率 (%)", fontproperties='Noto Sans CJK TC')
+    ax.set_title("Achievement Rate vs Holding Days")
+    ax.set_xlabel("Holding Days")
+    ax.set_ylabel("Target Return (%)")
 
     # 儲存為 base64 圖片
     buf = io.BytesIO()
