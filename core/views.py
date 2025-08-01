@@ -46,26 +46,33 @@ def get_rsi_crossover_stocks(request):
     # data = get_raw_data(period='6mo')
     # last_updated = get_last_update_time()
     
-    data = getData(sp500[:100])   # 你自己的函數，必須 MultiIndex: (ticker, Date)
-    data = data.sort_index()
+    
     rsi_crossover = []
+    batch_size = 100
 
-    for ticker in sp500[:100]:
-        try:
-            print(ticker)
-            df = data.loc[(ticker,),].T
+    for i in range(0, len(sp500), batch_size):
+        batch = sp500[i:i+batch_size]
+        data = getData(batch)   # 你自己的函數，必須 MultiIndex: (ticker, Date)
+        data = data.sort_index()
+        # 處理每一小批次
+        batch_result = []
+        for ticker in batch:
+            try:
+                print(ticker)
+                df = data.loc[(ticker,),].T
 
-            if df.empty or len(df) < 20:
-                continue
-            # === 修正這一行！ ===
-            df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi().squeeze()
-            df = df.dropna()
-            if len(df) >= 2:
-                if (df['RSI'].iloc[-2] < 30) and (df['RSI'].iloc[-1] >= 30):
-                    rsi_crossover.append(ticker)
-                    print(ticker)
-        except Exception as e:
-            print(f"{ticker} error: {e}")
+                if df.empty or len(df) < 20:
+                    continue
+                # === 修正這一行！ ===
+                df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi().squeeze()
+                df = df.dropna()
+                if len(df) >= 2:
+                    if (df['RSI'].iloc[-2] < 30) and (df['RSI'].iloc[-1] >= 30):
+                        rsi_crossover.append(ticker)
+                        print(ticker)
+            except Exception as e:
+                print(f"{ticker} error: {e}")
+        rsi_crossover.extend(batch_result)  # 合併結果
 
     print("出現 RSI crossover 30 的 S&P500 公司：")
     print(rsi_crossover)
