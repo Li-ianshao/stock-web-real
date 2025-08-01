@@ -76,7 +76,8 @@ def getData(ticker_list):
         auto_adjust = False,
         prepost = False,
         threads = True,
-        proxy = None
+        proxy = None,
+        timeout=10
     )
     data = data.T
     return data
