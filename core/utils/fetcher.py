@@ -60,6 +60,27 @@ def fetch_historical_data(symbol, period='10y', holding_days=[5, 10, 15, 20], go
 
     return signals_df
 
+def get_sp500_tickers():
+    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    df = pd.read_html(url)[0]
+    tickers = df['Symbol'].tolist()
+    tickers = [t.replace('.', '-') for t in tickers]
+    return tickers
+
+def getData(ticker_list):
+    data = yf.download(
+        tickers = ticker_list,
+        period = '6mo',
+        interval = '1d',
+        group_by = 'ticker',
+        auto_adjust = False,
+        prepost = False,
+        threads = True,
+        proxy = None
+    )
+    data = data.T
+    return data
+
 def clear_all_pickles():
     print('clear_all_pickles')
     """
@@ -77,6 +98,7 @@ def clear_all_pickles():
     print(f"已刪除 {count} 個 .pico 快取檔案")
 
 def fetch_stock_data(symbols, period='3mo', interval='1d'):
+    print('跑到這裡來了')
     """
     從 yfinance 抓取多支股票的歷史價格與 info
     :return: {symbol: {'history': DataFrame, 'info': dict}}
