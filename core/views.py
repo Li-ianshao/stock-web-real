@@ -39,17 +39,18 @@ def nan_to_none(obj):
 
 
 def get_rsi_crossover_stocks(request):
-    print('進入抓取S&P500')
+    print('\n\n\n\n進入抓取S&P500\n\n\n\n')
     sp500 = get_sp500_tickers()
     print('抓取S&P500')
     print(sp500)
+    
     data = getData(sp500)   # 你自己的函數，必須 MultiIndex: (ticker, Date)
     data = data.sort_index()
     rsi_crossover = []
 
     for ticker in sp500:
         try:
-            #print(ticker)
+            print(ticker)
             df = data.loc[(ticker,),].T
 
             if df.empty or len(df) < 20:
@@ -60,6 +61,7 @@ def get_rsi_crossover_stocks(request):
             if len(df) >= 2:
                 if (df['RSI'].iloc[-2] < 30) and (df['RSI'].iloc[-1] >= 30):
                     rsi_crossover.append(ticker)
+                    print(ticker)
         except Exception as e:
             print(f"{ticker} error: {e}")
 
