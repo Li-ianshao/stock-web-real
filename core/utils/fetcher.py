@@ -98,7 +98,6 @@ def clear_all_pickles():
     print(f"已刪除 {count} 個 .pico 快取檔案")
 
 def fetch_stock_data(symbols, period='3mo', interval='1d'):
-    print('跑到這裡來了')
     """
     從 yfinance 抓取多支股票的歷史價格與 info
     :return: {symbol: {'history': DataFrame, 'info': dict}}
