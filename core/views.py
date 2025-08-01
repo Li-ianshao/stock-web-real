@@ -39,16 +39,18 @@ def nan_to_none(obj):
 
 
 def get_rsi_crossover_stocks(request):
-    print('\n\n\n\n進入抓取S&P500\n\n\n\n')
     sp500 = get_sp500_tickers()
     print('抓取S&P500')
     print(sp500)
+
+    # data = get_raw_data(period='6mo')
+    # last_updated = get_last_update_time()
     
-    data = getData(sp500)   # 你自己的函數，必須 MultiIndex: (ticker, Date)
+    data = getData(sp500[:100])   # 你自己的函數，必須 MultiIndex: (ticker, Date)
     data = data.sort_index()
     rsi_crossover = []
 
-    for ticker in sp500:
+    for ticker in sp500[:100]:
         try:
             print(ticker)
             df = data.loc[(ticker,),].T
@@ -74,7 +76,6 @@ def get_rsi_crossover_stocks(request):
     })
 
 def stock_api(request, symbol):
-    print('我有呼叫stock_api嗎??')
     symbol = symbol.upper()
     period = '10y'
     stock_data = fetch_stock_data([symbol], period='1y')
@@ -325,8 +326,8 @@ def get_last_update_time():
     except:
         return "尚無記錄"
 
-def get_raw_data():
-    return load_or_fetch_stock_data(load_sp500_symbols())
+def get_raw_data(period='3mo'):
+    return load_or_fetch_stock_data(load_sp500_symbols(),period=period)
 
 @login_required
 def clear_cache_view(request):
