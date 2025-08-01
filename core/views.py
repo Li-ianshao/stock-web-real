@@ -7,7 +7,7 @@ import pandas as pd
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 import ta
-from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles, fetch_historical_data
+from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles, fetch_historical_data, getData, get_sp500_tickers
 from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks, get_stock_data_by_symbol, calculate_bbands, calculate_rsi, calculate_macd
 from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
@@ -37,15 +37,51 @@ def nan_to_none(obj):
         return [nan_to_none(v) for v in obj]
     return obj
 
+
+def get_rsi_crossover_stocks(request):
+    print('進入抓取S&P500')
+    sp500 = get_sp500_tickers()
+    print('抓取S&P500')
+    print(sp500)
+    data = getData(sp500)   # 你自己的函數，必須 MultiIndex: (ticker, Date)
+    data = data.sort_index()
+    rsi_crossover = []
+
+    for ticker in sp500:
+        try:
+            #print(ticker)
+            df = data.loc[(ticker,),].T
+
+            if df.empty or len(df) < 20:
+                continue
+            # === 修正這一行！ ===
+            df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi().squeeze()
+            df = df.dropna()
+            if len(df) >= 2:
+                if (df['RSI'].iloc[-2] < 30) and (df['RSI'].iloc[-1] >= 30):
+                    rsi_crossover.append(ticker)
+        except Exception as e:
+            print(f"{ticker} error: {e}")
+
+    print("出現 RSI crossover 30 的 S&P500 公司：")
+    print(rsi_crossover)
+    print(f"總共: {len(rsi_crossover)} 檔")
+
+    return JsonResponse({
+        'rsi_crossover':rsi_crossover
+    })
+
 def stock_api(request, symbol):
+    print('我有呼叫stock_api嗎??')
     symbol = symbol.upper()
     period = '10y'
-    stock_data = fetch_stock_data([symbol], period='2y')
-    #print(stock_data)
+    stock_data = fetch_stock_data([symbol], period='1y')
 
-    holding_days = [5, 10, 15, 20]
+    holding_days = [5, 10, 15, 20, 30, 40]
 
-    historical_data = fetch_historical_data(symbol,period=period,holding_days=holding_days)
+    goals=[2, 4, 6, 8, 10]
+
+    historical_data = fetch_historical_data(symbol,period=period,holding_days=holding_days, goals=goals)
 
     if historical_data is None or historical_data.empty:
         return JsonResponse({"error": "無 RSI 資料或事件"}, status=400)
@@ -106,8 +142,8 @@ def stock_api(request, symbol):
     ax = axes[0]
     up = df['Close'] >= df['Open']
     down = ~up
-    ax.bar(dates[up], df['Close'][up]-df['Open'][up], candle_w, bottom=df['Open'][up], color='red', edgecolor='k', label='Up')
-    ax.bar(dates[down], df['Close'][down]-df['Open'][down], candle_w, bottom=df['Open'][down], color='green', edgecolor='k', label='Down')
+    ax.bar(dates[up], df['Close'][up]-df['Open'][up], candle_w, bottom=df['Open'][up], color='green', edgecolor='k', label='Up')
+    ax.bar(dates[down], df['Close'][down]-df['Open'][down], candle_w, bottom=df['Open'][down], color='red', edgecolor='k', label='Down')
     ax.vlines(dates, df['Low'], df['High'], color='black', linewidth=0.5)
     ax.plot(dates, df['BB_Upper'], color='blue', linestyle='--', label='BBand Upper')
     ax.plot(dates, df['BB_Lower'], color='blue', linestyle='--', label='BBand Lower')
@@ -126,11 +162,29 @@ def stock_api(request, symbol):
     ax.legend(loc='upper left')
 
     # 2. MACD
+    # 先計算 histogram 變動方向
+    hist = df['MACD_hist'].values
+    # 上一根
+    hist_prev = np.roll(hist, 1)
+    hist_prev[0] = np.nan
+
+    # 分類
+    cond1 = (hist > 0) & (hist > hist_prev)      # 上面且繼續走高 → 亮綠
+    cond2 = (hist > 0) & (hist <= hist_prev)     # 上面但回落   → 暗綠
+    cond3 = (hist < 0) & (hist < hist_prev)      # 下面繼續走低 → 紅色
+    cond4 = (hist < 0) & (hist >= hist_prev)     # 下面但回升   → 暗紅
+
+    dates = df.index
+
     ax = axes[1]
     pos = df['MACD_hist'] > 0
     neg = ~pos
-    ax.bar(dates[pos], df.loc[pos, 'MACD_hist'], color='green', alpha=0.85, label='MACD Hist +')
-    ax.bar(dates[neg], df.loc[neg, 'MACD_hist'], color='red', alpha=0.85, label='MACD Hist -')
+    # ax.bar(dates[pos], df.loc[pos, 'MACD_hist'], color='green', alpha=0.85, label='MACD Hist +')
+    # ax.bar(dates[neg], df.loc[neg, 'MACD_hist'], color='red', alpha=0.85, label='MACD Hist -')
+    ax.bar(dates[cond1], hist[cond1], color='#22c55e', alpha=0.9, label='MACD Hist up ↑')    # 亮綠
+    ax.bar(dates[cond2], hist[cond2], color='#166534', alpha=0.85, label='MACD Hist weak ↑') # 暗綠
+    ax.bar(dates[cond3], hist[cond3], color='#ef4444', alpha=0.85, label='MACD Hist down ↓') # 紅
+    ax.bar(dates[cond4], hist[cond4], color='#7f1d1d', alpha=0.85, label='MACD Hist weak ↓') # 暗紅
     ax.plot(dates, df['MACD'], color='blue', label='MACD')
     ax.plot(dates, df['MACD_signal'], color='orange', label='Signal')
     macd_cross = df[df['MACD_GC']]
@@ -212,6 +266,15 @@ def stock_api(request, symbol):
 
     price_data = df.to_dict(orient='records')
     price_data = nan_to_none(price_data)  # 這步最重要！
+
+    dividend_ts = stock_data[symbol]['info'].get('dividendDate')
+    exDividendDate_ts = stock_data[symbol]['info'].get('exDividendDate')
+    if dividend_ts:
+        dividend_date = datetime.fromtimestamp(dividend_ts).strftime('%Y-%m-%d')
+        exDividend_Date = datetime.fromtimestamp(exDividendDate_ts).strftime('%Y-%m-%d')
+        print("配息日：", dividend_date)
+    else:
+        print("找不到配息日資料")
     
     return JsonResponse({
         "symbol": symbol,
@@ -243,6 +306,8 @@ def stock_api(request, symbol):
         'operating_cashflow': stock_data[symbol]['info'].get('operatingCashflow'),
         'averageVolume': stock_data[symbol]['info'].get('averageVolume'),
         'website': stock_data[symbol]['info'].get('website'),
+        'dividend_date': dividend_date,
+        'exDividend_Date': exDividend_Date,
         'price_data': price_data,
     })
 
