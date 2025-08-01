@@ -315,17 +315,17 @@
             // }
 
             
-            window.addEventListener('DOMContentLoaded', () => {
-                showLoading()
-                fetch('/core/api/rsi_crossover/')
-                    .then(res => res.json())
-                    .then(data => {
-                        hideLoading()
-                        // 處理資料
-                        console.log("Fetch success", data);
-                        renderStockTags(data.rsi_crossover);
-                    });
-            });
+            // window.addEventListener('DOMContentLoaded', () => {
+            //     showLoading()
+            //     fetch('/core/api/rsi_crossover/')
+            //         .then(res => res.json())
+            //         .then(data => {
+            //             hideLoading()
+            //             // 處理資料
+            //             console.log("Fetch success", data);
+            //             renderStockTags(data.rsi_crossover);
+            //         });
+            // });
 
             // 假設 data.rsi_crossover 已經是 ["AIG", "COST", ...]
             function renderStockTags(tickers) {
