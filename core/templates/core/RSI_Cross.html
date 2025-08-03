@@ -72,14 +72,30 @@
                         tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow mr-2 mb-2 inline-block';
                         
                         // dividends 資料有詳細內容可特別處理
-                        if (category === "dividends" && typeof symbolItem === "string" && symbolItem.split("/").length === 3) {
-                            const [ticker, date, yieldValue] = symbolItem.split("/");
-                            tag.innerText = `${ticker}｜${date}｜${yieldValue}%`;
-                            tag.dataset.symbol = ticker;
-                            tag.title = `除息日：${date}，殖利率：${yieldValue}%`;
-                            tag.onclick = function() {
-                                addOrSwitchTab(ticker);
-                            };
+                        if (category === "dividends" && typeof symbolItem === "object" && symbolItem.Ticker) {
+                            tag.innerText = symbolItem.Ticker;
+                            tag.dataset.symbol = symbolItem.Ticker;
+
+                           // ----- 手機長按 -----
+                            let pressTimer = null;
+                            tag.addEventListener('touchstart', function(e) {
+                                pressTimer = setTimeout(function() {
+                                    alert(
+                                        `除息日: ${symbolItem.Div_Date}\n殖利率: ${symbolItem.Yields}%\nAris: ${symbolItem.Aris}`
+                                    );
+                                }, 700); // 長按 700ms
+                            });
+                            tag.addEventListener('touchend', function(e) {
+                                clearTimeout(pressTimer);
+                            });
+                            tag.addEventListener('touchmove', function(e) {
+                                clearTimeout(pressTimer); // 滑動視為放棄長按
+                            });
+
+                            // ----- 電腦 hover 顯示瀏覽器原生 title -----
+                            tag.title = `除息日: ${symbolItem.Div_Date}\n殖利率: ${symbolItem.Yields}%\nAris: ${symbolItem.Aris}`;
+
+                            // 若要同時保留點擊開標籤、長按才顯示訊息，請看下方B方案
                         } else {
                             // RSI 之類直接顯示
                             tag.innerText = symbolItem;
@@ -454,15 +470,38 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        "RSI":['STE','PG','COST'],
-                        "dividends":['ET/2025-08-10/6.5', 'MO/2025-08-18/5.5', 'XOM/2025-09-10/4.85']
+                        "RSI": [
+                            "AAPL",
+                            "TSLA",
+                            "NVDA"
+                        ],
+                        "dividends": [
+                            {
+                                "Ticker": "XOM",
+                                "Div_Date": "2025-08-15",
+                                "Yields": 4.85,
+                                "Aris": "True"
+                            },
+                            {
+                                "Ticker": "T",
+                                "Div_Date": "2025-07-30",
+                                "Yields": 7.15,
+                                "Aris": "False"
+                            },
+                            {
+                                "Ticker": "MO",
+                                "Div_Date": "2025-08-18",
+                                "Yields": 5.63,
+                                "Aris": "False"
+                            }
+                        ]
                     })
                 })
                 .then(res => res.json())
                 .then(data => console.log(data));
             }
 
-            setInterval(fetchData, 10000);
+            setInterval(fetchData, 600000);
 
             // function drawCandleChart(data) {
             //     const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
