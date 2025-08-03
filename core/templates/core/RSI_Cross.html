@@ -46,11 +46,8 @@
             }
             
             function renderAllStockTags(data,update_time) {
-                console.log('data:')
                 console.log(data)
-                console.log('update_time:')
                 console.log(update_time)
-
                 Object.keys(data).forEach(category => {
                     // 確保有一個區域，若沒有自動建立
                     let tagArea = document.getElementById('stock-tag-area-' + category);
@@ -80,9 +77,10 @@
                             let pressTimer = null;
                             tag.addEventListener('touchstart', function(e) {
                                 pressTimer = setTimeout(function() {
-                                    alert(
-                                        `除息日: ${symbolItem.Div_Date}\n殖利率: ${symbolItem.Yields}%\nAris: ${symbolItem.Aris}`
-                                    );
+                                    let msg = Object.keys(symbolItem).map(
+                                        key => `${key} : ${symbolItem[key]}`
+                                    ).join('\n');
+                                    alert(msg);
                                 }, 700); // 長按 700ms
                             });
                             tag.addEventListener('touchend', function(e) {
@@ -91,9 +89,15 @@
                             tag.addEventListener('touchmove', function(e) {
                                 clearTimeout(pressTimer); // 滑動視為放棄長按
                             });
+                            tag.onclick = function() {
+                                addOrSwitchTab(symbolItem.Ticker);
+                            };
 
                             // ----- 電腦 hover 顯示瀏覽器原生 title -----
-                            tag.title = `除息日: ${symbolItem.Div_Date}\n殖利率: ${symbolItem.Yields}%\nAris: ${symbolItem.Aris}`;
+                            let msg = Object.keys(symbolItem).map(
+                                key => `${key} : ${symbolItem[key]}`
+                            ).join('\n');
+                            tag.title = msg;
 
                             // 若要同時保留點擊開標籤、長按才顯示訊息，請看下方B方案
                         } else {
@@ -400,9 +404,9 @@
                                     <h2 class="text-lg font-bold text-indigo-700 mb-2">股利/收益穩定</h2>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
                                         <div>
-                                            <span class="font-medium text-gray-600">配息日(dividend_date)：</span> ${ data.dividend_date }
-                                            <br/>
                                             <span class="font-medium text-gray-600">除息日(exDividend_Date)：</span> ${ data.exDividend_Date }
+                                            <br/>
+                                            <span class="font-medium text-gray-600">配息日(dividend_date)：</span> ${ data.dividend_date }
                                         </div>
                                         <div>
                                             <span class="font-medium text-gray-600">每年每股股息(dividend_rate)：</span> ${ data.dividend_rate }
@@ -459,7 +463,7 @@
                 fetch('/core/api/stockdata/')
                 .then(res => res.json())
                 .then(data => {
-                    console.log(new Date(data.update_time * 1000))
+                    console.log(data)
                     date = new Date(data.update_time * 1000)
                     renderAllStockTags(data=data.data,update_time=date)
                 });
@@ -501,7 +505,7 @@
                 .then(data => console.log(data));
             }
 
-            setInterval(fetchData, 600000);
+            setInterval(fetchData, 100000);
 
             // function drawCandleChart(data) {
             //     const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
@@ -1108,6 +1112,10 @@
             //     }
             // }
 
+            window.addEventListener('DOMContentLoaded', () => {
+                fetchData();
+            });
+
             function showStockTagArea(type) {
                 // 隱藏全部 stock-tag 區
                 document.querySelectorAll('.stock-tag-area').forEach(div => div.style.display = 'none');
@@ -1208,9 +1216,9 @@
             <div class="flex-1 ml-2">
                 <!-- 小型頁籤 -->
                 <div id="stock-tag-tabs" class="flex space-x-2 mb-2">
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-white text-gray-700 border-b-2 border-blue-500 font-semibold focus:outline-none" onclick="showStockTagArea('RSI')" id="stock-tag-tab-RSI">RSI_Over_30</button>
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('drop')" id="stock-tag-tab-drop">Drop</button>
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Divdend</button>
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-white text-gray-700 border-b-2 border-blue-500 font-semibold focus:outline-none" onclick="showStockTagArea('RSI')" id="stock-tag-tab-RSI">RSI_Xover_30</button>
+                    <!-- <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('drop')" id="stock-tag-tab-drop">Drop</button> -->
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Dividends</button>
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
                 <div id="stock-tag-area-RSI" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-50 rounded shadow" style="display:block"></div>
