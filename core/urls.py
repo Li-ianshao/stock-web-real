@@ -10,6 +10,7 @@ urlpatterns = [
     path('drop/', views.tab_drop_view, name='tab_drop'),
     path('rsicross/', views.stock_input_view, name='stock_input_view'),
     path('api/stock/<str:symbol>/', views.stock_api, name='stock_api'),
+    path('api/stockdata/', views.stockdata_api, name='stockdata_api'),
     path('api/rsi_crossover/', views.get_rsi_crossover_stocks, name='get_rsi_crossover_stocks'),
     path('<str:symbol>/', views.stock_detail_view, name='stock_detail'),  # 詳細頁
 ]
