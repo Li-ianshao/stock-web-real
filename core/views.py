@@ -23,8 +23,10 @@ import matplotlib.dates as mdates
 import numpy as np
 import seaborn as sns
 from matplotlib.font_manager import FontProperties
+from django.views.decorators.csrf import csrf_exempt
 ch_font = FontProperties(fname='C:/Windows/Fonts/msjh.ttc')  # Windows 微軟正黑體路徑
 import re
+import time
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
@@ -74,6 +76,35 @@ def get_rsi_crossover_stocks(request):
     return JsonResponse({
         'rsi_crossover':rsi_crossover
     })
+
+latest_stock_data = None
+
+@csrf_exempt
+def stockdata_api(request):
+    global latest_stock_data
+
+    if request.method == 'POST':
+        # 1. 接收前端傳來的 JSON
+        try:
+            print(time.time())
+            data = json.loads(request.body.decode('utf-8'))
+            latest_stock_data = {
+                "update_time": time.time(),  # UNIX timestamp
+                "data": data
+            }
+            return JsonResponse({'status': 'success', 'msg': '資料已收到並存儲'}, status=200)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'msg': f'資料格式錯誤: {e}'}, status=400)
+    
+    elif request.method == 'GET':
+        # 2. 回傳最新資料
+        if latest_stock_data is not None:
+            return JsonResponse(latest_stock_data, safe=False)
+        else:
+            return JsonResponse({'status': 'empty', 'msg': '目前無資料'}, status=200)
+
+    else:
+        return JsonResponse({'status': 'error', 'msg': '不支援的方法'}, status=405)
 
 def stock_api(request, symbol):
     symbol = symbol.upper()

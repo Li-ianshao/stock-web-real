@@ -45,40 +45,82 @@
                 return "text-gray-800";
             }
             
-            window.addEventListener('DOMContentLoaded', () => {
-                showLoading()
-                fetch('/core/api/rsi_crossover/')
-                    .then(res => res.json())
-                    .then(data => {
-                        hideLoading()
-                        // 處理資料
-                        console.log("Fetch success", data);
-                        renderStockTags(data.rsi_crossover);
+            function renderAllStockTags(data,update_time) {
+                console.log('data:')
+                console.log(data)
+                console.log('update_time:')
+                console.log(update_time)
+
+                Object.keys(data).forEach(category => {
+                    // 確保有一個區域，若沒有自動建立
+                    let tagArea = document.getElementById('stock-tag-area-' + category);
+                    tagArea.innerHTML = ""; // 先清空
+                    // if (!tagArea) {
+                    //     // 自動建立區塊並加標題
+                    //     tagArea = document.createElement('div');
+                    //     tagArea.id = 'stock-tag-area-' + category;
+                    //     tagArea.className = "mb-2";
+                    //     tagArea.innerHTML = `<div class="text-xs text-gray-500 mb-1">${category}</div>`;
+                    //     document.body.appendChild(tagArea); // 你可指定插入在你想要的容器下
+                    // } else {
+                    //     tagArea.innerHTML = `<div class="text-xs text-gray-500 mb-1">${category}</div>`;
+                    // }
+                    
+                    // 產生標籤
+                    data[category].forEach(symbolItem => {
+                        const tag = document.createElement('span');
+                        tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow mr-2 mb-2 inline-block';
+                        
+                        // dividends 資料有詳細內容可特別處理
+                        if (category === "dividends" && typeof symbolItem === "string" && symbolItem.split("/").length === 3) {
+                            const [ticker, date, yieldValue] = symbolItem.split("/");
+                            tag.innerText = `${ticker}｜${date}｜${yieldValue}%`;
+                            tag.dataset.symbol = ticker;
+                            tag.title = `除息日：${date}，殖利率：${yieldValue}%`;
+                            tag.onclick = function() {
+                                addOrSwitchTab(ticker);
+                            };
+                        } else {
+                            // RSI 之類直接顯示
+                            tag.innerText = symbolItem;
+                            tag.dataset.symbol = symbolItem;
+                            tag.onclick = function() {
+                                addOrSwitchTab(symbolItem);
+                            };
+                        }
+
+                        tag.draggable = true;
+                        tag.ondragstart = function(e) {
+                            e.dataTransfer.setData("symbol", tag.dataset.symbol);
+                        };
+                        tagArea.appendChild(tag);
+                        document.getElementById("update-info").innerText = "資料更新時間："+update_time;
                     });
-            });
-
-            // 假設 data.rsi_crossover 已經是 ["AIG", "COST", ...]
-            function renderStockTags(tickers) {
-                const tagArea = document.getElementById('stock-tag-area-RSI_Over_30');
-                tagArea.innerHTML = ""; // 先清空
-
-                tickers.forEach(symbol => {
-                    const tag = document.createElement('span');
-                    tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow';
-                    tag.innerText = symbol;
-                    tag.draggable = true;
-                    tag.dataset.symbol = symbol;
-                    // 拖曳開始
-                    tag.ondragstart = function(e) {
-                        e.dataTransfer.setData("symbol", symbol);
-                    };
-                    // 也可以支援點擊新增
-                    tag.onclick = function() {
-                        addOrSwitchTab(symbol);
-                    };
-                    tagArea.appendChild(tag);
                 });
             }
+
+            // 假設 data.rsi_crossover 已經是 ["AIG", "COST", ...]
+            // function renderStockTags(tickers) {
+            //     const tagArea = document.getElementById('stock-tag-area-RSI_Over_30');
+            //     tagArea.innerHTML = ""; // 先清空
+
+            //     tickers.forEach(symbol => {
+            //         const tag = document.createElement('span');
+            //         tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow';
+            //         tag.innerText = symbol;
+            //         tag.draggable = true;
+            //         tag.dataset.symbol = symbol;
+            //         // 拖曳開始
+            //         tag.ondragstart = function(e) {
+            //             e.dataTransfer.setData("symbol", symbol);
+            //         };
+            //         // 也可以支援點擊新增
+            //         tag.onclick = function() {
+            //             addOrSwitchTab(symbol);
+            //         };
+            //         tagArea.appendChild(tag);
+            //     });
+            // }
 
             function handleDrop(e) {
                 e.preventDefault();
@@ -120,7 +162,6 @@
                     // tab.onclick = () => addOrSwitchTab(symbol);
                     // document.getElementById('tab-header').appendChild(tab);
                 }
-                console.log(tab)
                 tab.classList.add('active', 'bg-white', 'font-bold');
 
                 // 內容 div
@@ -136,7 +177,6 @@
                     fetch(`/core/api/stock/${symbol}/`)
                     .then(res => res.json())
                     .then(data => {
-                        console.log(data);
                         const priceData = data.price_data;
                         
                         const content = document.getElementById('tab-content');
@@ -397,6 +437,32 @@
                     });
                 }
             }
+
+
+            function fetchData () {
+                fetch('/core/api/stockdata/')
+                .then(res => res.json())
+                .then(data => {
+                    console.log(new Date(data.update_time * 1000))
+                    date = new Date(data.update_time * 1000)
+                    renderAllStockTags(data=data.data,update_time=date)
+                });
+            }
+
+            function sendData () {
+                fetch('/core/api/stockdata/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        "RSI":['STE','PG','COST'],
+                        "dividends":['ET/2025-08-10/6.5', 'MO/2025-08-18/5.5', 'XOM/2025-09-10/4.85']
+                    })
+                })
+                .then(res => res.json())
+                .then(data => console.log(data));
+            }
+
+            setInterval(fetchData, 10000);
 
             // function drawCandleChart(data) {
             //     const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
@@ -1094,19 +1160,24 @@
                     class="bg-blue-600 hover:bg-blue-700 text-white w-12 h-12 rounded-full text-2xl shadow-lg flex items-center justify-center">
                     ＋
                 </button>
+                <button onclick="sendData()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white w-12 h-12 rounded-full text-2xl shadow-lg flex items-center justify-center">
+                    送
+                </button>
             </div>
             <!-- stock tag 切換區（占據剩餘空間） -->
             <div class="flex-1 ml-2">
                 <!-- 小型頁籤 -->
                 <div id="stock-tag-tabs" class="flex space-x-2 mb-2">
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-white text-gray-700 border-b-2 border-blue-500 font-semibold focus:outline-none" onclick="showStockTagArea('RSI_Over_30')" id="stock-tag-tab-RSI_Over_30">RSI_Over_30</button>
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('Drop')" id="stock-tag-tab-Drop">Drop</button>
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('Divdend')" id="stock-tag-tab-Divdend">Divdend</button>
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-white text-gray-700 border-b-2 border-blue-500 font-semibold focus:outline-none" onclick="showStockTagArea('RSI')" id="stock-tag-tab-RSI">RSI_Over_30</button>
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('drop')" id="stock-tag-tab-drop">Drop</button>
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Divdend</button>
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
-                <div id="stock-tag-area-RSI_Over_30" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-50 rounded shadow" style="display:block"></div>
-                <div id="stock-tag-area-Drop" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-green-50 rounded shadow" style="display:none"></div>
-                <div id="stock-tag-area-Divdend" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-yellow-50 rounded shadow" style="display:none"></div>
+                <div id="stock-tag-area-RSI" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-50 rounded shadow" style="display:block"></div>
+                <div id="stock-tag-area-drop" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-green-50 rounded shadow" style="display:none"></div>
+                <div id="stock-tag-area-dividends" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-yellow-50 rounded shadow" style="display:none"></div>
+                <div id="update-info" class="text-gray-500 mb-2"></div>
             </div>
         </div>
         <!-- Loading 讀取區（預設隱藏）-->
