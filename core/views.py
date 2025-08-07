@@ -42,8 +42,8 @@ def nan_to_none(obj):
 
 def get_rsi_crossover_stocks(request):
     sp500 = get_sp500_tickers()
-    print('抓取S&P500')
-    print(sp500)
+    # print('抓取S&P500')
+    # print(sp500)
 
     # data = get_raw_data(period='6mo')
     # last_updated = get_last_update_time()
@@ -54,7 +54,7 @@ def get_rsi_crossover_stocks(request):
 
     for ticker in sp500:
         try:
-            print(ticker)
+            #print(ticker)
             df = data.loc[(ticker,),].T
 
             if df.empty or len(df) < 20:
@@ -65,13 +65,13 @@ def get_rsi_crossover_stocks(request):
             if len(df) >= 2:
                 if (df['RSI'].iloc[-2] < 30) and (df['RSI'].iloc[-1] >= 30):
                     rsi_crossover.append(ticker)
-                    print(ticker)
+                    #print(ticker)
         except Exception as e:
             print(f"{ticker} error: {e}")
 
-    print("出現 RSI crossover 30 的 S&P500 公司：")
-    print(rsi_crossover)
-    print(f"總共: {len(rsi_crossover)} 檔")
+    # print("出現 RSI crossover 30 的 S&P500 公司：")
+    # print(rsi_crossover)
+    # print(f"總共: {len(rsi_crossover)} 檔")
 
     return JsonResponse({
         'rsi_crossover':rsi_crossover
@@ -86,7 +86,6 @@ def stockdata_api(request):
     if request.method == 'POST':
         # 1. 接收前端傳來的 JSON
         try:
-            print(time.time())
             data = json.loads(request.body.decode('utf-8'))
             latest_stock_data = {
                 "update_time": time.time(),  # UNIX timestamp
@@ -158,8 +157,6 @@ def stock_api(request, symbol):
 
     
     dates = df.index
-    print(df.index)
-    print(type(df.index))
     candle_w = 2  # 使用時間軸，width設2天
 
     n_labels = 12
@@ -279,11 +276,73 @@ def stock_api(request, symbol):
     ax.set_xlabel("Holding Days")
     ax.set_ylabel("Target Return (%)")
 
+    # 目標達標機率列表
+    heat_goal_detail = heatmap_data.round(2).to_dict()  # {天數: {目標報酬: 機率%}}
+
     # 儲存為 base64 圖片
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
-    img_base64_heat = base64.b64encode(buf.read()).decode('utf-8')
+    img_base64_heat_goal = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+    plt.close()
+
+    # 假設 historical_data 為完整 df，有 DateTimeIndex，有 'Close' 欄
+    # dividends 為配息日 datetime 的 list (或 Series)
+    dividends = stock_data[symbol]['dividends']
+    days = [10, 20, 30, 40, 50, 60]
+    results = {d: [] for d in days}
+    print(dividends)
+
+    for div_date in dividends.index:
+        if div_date not in df.index:
+            continue
+        idx = df.index.get_loc(div_date)
+        if idx == 0:  # 第一個日期沒前一天
+            continue
+        pre_close = df.iloc[idx - 1]['Close']
+        # 取得之後 N 天內的最大收盤價
+        for d in days:
+            if idx + d >= len(df):
+                continue
+            window = df.iloc[idx: idx + d]['Close']
+            max_close = window.max()
+            pct = (max_close - pre_close) / pre_close * 100
+            results[d].append(round(pct, 2))
+
+    # 每一個配息日後 10,20...60天內的最大漲幅
+    dividend_list = []
+    for div_date in dividends.index:
+        if div_date not in df.index: continue
+        idx = df.index.get_loc(div_date)
+        if idx == 0: continue
+        pre_close = df.iloc[idx - 1]['Close']
+        item = {'date': div_date.strftime('%Y-%m-%d'), 'pre_close': pre_close}
+        for d in days:
+            if idx + d >= len(df): continue
+            window = df.iloc[idx: idx + d]['Close']
+            max_close = window.max()
+            pct = (max_close - pre_close) / pre_close * 100
+            item[f'max_return_{d}d'] = round(pct, 2)
+        dividend_list.append(item)
+
+    # 製作熱力圖 DataFrame
+    heatmap_df = pd.DataFrame(
+        [[np.mean(results[d]) if results[d] else np.nan for d in days]],
+        index=['Max Return %'], columns=days
+    )
+
+    plt.figure(figsize=(8,2))
+    sns.heatmap(heatmap_df, annot=True, fmt=".2f", cmap="YlGnBu")
+    plt.title("Avg Max Return (%) after Dividends")
+    plt.xlabel("Days after dividend")
+    plt.ylabel("")
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    img_base64_heat_div = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
     plt.close()
 
@@ -298,22 +357,31 @@ def stock_api(request, symbol):
 
     df = df.where(pd.notnull(df), None)
 
+    dividends_list = [
+        {"date": dt.strftime("%Y-%m-%d"), "dividend": float(v)}
+        for dt, v in stock_data[symbol]['dividends'].items()
+    ]
+
+
     price_data = df.to_dict(orient='records')
     price_data = nan_to_none(price_data)  # 這步最重要！
 
     dividend_ts = stock_data[symbol]['info'].get('dividendDate')
     exDividendDate_ts = stock_data[symbol]['info'].get('exDividendDate')
+    
     if dividend_ts:
         dividend_date = datetime.fromtimestamp(dividend_ts).strftime('%Y-%m-%d')
         exDividend_Date = datetime.fromtimestamp(exDividendDate_ts).strftime('%Y-%m-%d')
-        print("配息日：", dividend_date)
     else:
         dividend_date = "找不到配息日資料"
         exDividend_Date = "找不到配息日資料"
     
     return JsonResponse({
         "symbol": symbol,
-        'heatmap': img_base64_heat,
+        'heatmap_goal': img_base64_heat_goal,
+        'heatmap_goal_detail': heat_goal_detail,
+        'heatmap_div': img_base64_heat_div,
+        'heatmap_div_detail': dividend_list,
         'techmap': img_base64_tech,
         "event_count": len(historical_data),
         'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
@@ -343,6 +411,7 @@ def stock_api(request, symbol):
         'website': stock_data[symbol]['info'].get('website',"(Empty)"),
         'dividend_date': dividend_date,
         'exDividend_Date': exDividend_Date,
+        'dividends':dividends_list,
         'price_data': price_data,
     })
 

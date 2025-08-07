@@ -109,6 +109,7 @@ def fetch_stock_data(symbols, period='3mo', interval='1d'):
             print(f"正在抓取 {symbol} 的資料...")
             ticker = yf.Ticker(symbol)
             hist = ticker.history(period=period, interval=interval)
+            dividends = ticker.dividends
 
             if hist.empty:
                 print(f"發現 {symbol} 無歷史資料，跳過")
@@ -116,7 +117,8 @@ def fetch_stock_data(symbols, period='3mo', interval='1d'):
 
             result[symbol] = {
                 'history': hist,
-                'info': ticker.info
+                'info': ticker.info,
+                'dividends': dividends
             }
 
         except Exception as e:
