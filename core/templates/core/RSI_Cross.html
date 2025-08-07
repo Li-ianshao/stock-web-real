@@ -8,6 +8,12 @@
         <script>
             let activeTab = null;
             const stockContentDict = {};
+            const price_data_saved = {};
+            const dividends_saved = {};
+            const heatmap_goal_detail = {};
+            const heatmap_div_detail = {};
+            
+            
 
             function addTab() {
                 const input = document.getElementById('symbol-input');
@@ -95,7 +101,7 @@
                                 clearTimeout(pressTimer); // 滑動視為放棄長按
                             });
                             tag.onclick = function() {
-                                addOrSwitchTab(symbolItem.Ticker);
+                                addOrSwitchTab(symbolItem.Ticker,category);
                             };
 
                             // ----- 電腦 hover 顯示瀏覽器原生 title -----
@@ -117,6 +123,7 @@
                         tag.draggable = true;
                         tag.ondragstart = function(e) {
                             e.dataTransfer.setData("symbol", tag.dataset.symbol);
+                            e.dataTransfer.setData("category", category);
                         };
                         tagArea.appendChild(tag);
                         document.getElementById("update-info").innerText = "資料更新時間："+update_time;
@@ -150,12 +157,15 @@
             function handleDrop(e) {
                 e.preventDefault();
                 const symbol = e.dataTransfer.getData("symbol");
+                const category = e.dataTransfer.getData("category");
                 if (symbol) {
-                    addOrSwitchTab(symbol);
+                    addOrSwitchTab(symbol,category);
                 }
             }
 
-            function addOrSwitchTab(symbol) {
+            function addOrSwitchTab(symbol, category = '') {
+                console.log(category)
+                
                 // 標籤樣式管理
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
                 let tab = document.getElementById(`tab-${symbol}`);
@@ -196,6 +206,31 @@
                 if (stockContentDict[symbol]) {
                     // 有快取就直接顯示
                     contentDiv.innerHTML = stockContentDict[symbol];
+                    priceData = price_data_saved[symbol]
+                    dividends = dividends_saved[symbol]
+                    // 呼叫畫圖
+                    drawMACDChart(priceData);
+
+                    drawRSIChart(priceData);
+
+                    drawVolumeChart(priceData);
+
+                    drawCandleChart(priceData,dividends);
+
+                    renderGoalTable(heatmap_goal_detail[symbol]);
+                    renderDividendTable(heatmap_div_detail[symbol]);
+
+                    // 先全部隱藏
+                    document.getElementById('goal-heatmap-area').style.display = 'none';
+                    document.getElementById('dividend-heatmap-area').style.display = 'none';
+
+                    // 根據 category 顯示
+                    if (category === 'dividends') {
+                        document.getElementById('dividend-heatmap-area').style.display = '';
+                    } else {
+                        document.getElementById('goal-heatmap-area').style.display = '';
+                    }
+                   
                 } else {
                     // 還沒載入時先顯示 loading
                     contentDiv.innerHTML = `<p class="text-gray-500">載入 ${symbol} 資料中...</p>`;
@@ -203,6 +238,7 @@
                     .then(res => res.json())
                     .then(data => {
                         const priceData = data.price_data;
+                        const dividends = data.dividends;
                         
                         const content = document.getElementById('tab-content');
                         const imgHTML = `
@@ -361,7 +397,7 @@
                                     <div class="grid grid-cols-1 md:grid-cols-2  mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
                                         <div>
                                             <span class="font-medium text-gray-600">歷史本益比(trailingPE)：</span> 
-                                            <span class="${getClassByValue( data.trailingPE,30,10)}">${ data.trailingPE }</span>
+                                            <span class="${getClassByValue( data.trailingPE*-1,-10,-30)}">${ data.trailingPE }</span>
                                             <div class="text-gray-400 mt-1">目前股價是過去12個月盈餘的幾倍</div>
                                             <ul class="text-gray-400 list-disc list-inside">
                                                 <li>10~20 通常為合理範圍</li>
@@ -445,7 +481,18 @@
                             </div>
                         </div>
                         <img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />
-                        <img src="data:image/png;base64,${data.heatmap}" class="max-w-full border rounded shadow" />
+                        
+                        <div id="goal-heatmap-area" style="display:none;" class="mb-8 bg-white rounded-xl shadow p-4">
+                            <img src="data:image/png;base64,${data.heatmap_goal}" class="max-w-full border rounded shadow" />
+                            <h2 class="text-xl font-bold mb-2">目標達標率明細</h2>
+                            <div id="goal-table-area"></div>
+                        </div>
+                        <div  id="dividend-heatmap-area" style="display:none;" class="bg-white rounded-xl shadow p-4">
+                            <img src="data:image/png;base64,${data.heatmap_div}" class="max-w-full border rounded shadow" />
+                            <h2 class="text-xl font-bold mb-2">配息日後報酬明細</h2>
+                            <div id="dividend-table-area"></div>
+                        </div>
+                        
 
                         <!-- 📈 技術圖表區塊 -->
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
@@ -525,12 +572,17 @@
                         
                         `;
                         content.innerHTML = imgHTML;
+                        
                         // 儲存進快取
-                        stockContentDict[symbol] = imgHTML;
+                        price_data_saved[symbol] = priceData
+                        dividends_saved[symbol] = dividends
+                        heatmap_goal_detail[symbol] = data.heatmap_goal_detail
+                        heatmap_div_detail[symbol] = data.heatmap_div_detail
+                        stockContentDict[symbol] = content.innerHTML;
 
                         // 只顯示當前 tab（避免 race condition）
                         if (activeTab === symbol) {
-                            contentDiv.innerHTML = imgHTML;
+                            contentDiv.innerHTML = content.innerHTML;
                         }
 
                         // 呼叫畫圖
@@ -540,12 +592,29 @@
 
                         drawVolumeChart(priceData);
 
-                        drawCandleChart(priceData);
+                        drawCandleChart(priceData,dividends);
+                        
+                        renderGoalTable(data.heatmap_goal_detail);
+                        renderDividendTable(data.heatmap_div_detail);
+
+                        // 先全部隱藏
+                        document.getElementById('goal-heatmap-area').style.display = 'none';
+                        document.getElementById('dividend-heatmap-area').style.display = 'none';
+
+                        // 根據 category 顯示
+                        if (category === 'dividends') {
+                            document.getElementById('dividend-heatmap-area').style.display = '';
+                        } else {
+                            document.getElementById('goal-heatmap-area').style.display = '';
+                        }
+
+                        
                     })
                     .catch(err => {
                         contentDiv.innerHTML = `<p class="text-red-500">取得 ${symbol} 資料時發生錯誤</p>`;
                     });
                 }
+                
             }
 
 
@@ -553,7 +622,6 @@
                 fetch('/core/api/stockdata/')
                 .then(res => res.json())
                 .then(data => {
-                    console.log(data)
                     date = new Date(data.update_time * 1000)
                     renderAllStockTags(data=data.data,update_time=date)
                 });
@@ -622,7 +690,11 @@
 
             
 
-            function drawCandleChart(data) {
+            function drawCandleChart(data,dividends) {
+                // 假設 data 已經有 date (Date 物件)，抓取圖表區間
+                const candleDatesSet = new Set(data.map(d => d.Date)); // "2024-08-07" 這種格式
+                const filteredDividends = dividends.filter(d => candleDatesSet.has(d.date));
+                
                 const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
                 const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
                 const margin = { top: 20, right: 40, bottom: 30, left: 50};
@@ -640,7 +712,6 @@
                 // 轉換日期格式
                 const parseDate = d3.timeParse("%Y-%m-%d");
                 data.forEach(d => {
-                    console.log(d);
                     d.date = parseDate(d.Date);
                     d.Open = +d.Open;
                     d.High = +d.High;
@@ -719,6 +790,72 @@
                     .attr("stroke-width", 1.5)
                     .attr("d", lineLower);
 
+                const bbCrossData = data.filter(d => d.BB_Lower_Cross)
+                // 1. 畫 BB_Lower_Cross 標記圓點
+                svg.selectAll(".bb-cross-point")
+                    .data(bbCrossData)
+                    .enter()
+                    .append("circle")
+                    .attr("class", "bb-cross-point")
+                    .attr("cx", d => x(d.date) + x.bandwidth() / 2)
+                    .attr("cy", d => y(d.Low)+16)   // 低點下方一點
+                    .attr("r", 7)
+                    .attr("fill", "magenta")
+                    .attr("opacity", 0.85);
+
+                // 2. 標註日期（直立）
+                svg.selectAll(".bb-cross-label")
+                    .data(bbCrossData)
+                    .enter()
+                    .append("text")
+                    .attr("class", "bb-cross-label")
+                    .attr("x", d => x(d.date) + x.bandwidth() / 2)
+                    .attr("y", d => y(d.Low)+54) // 比圓點再低一點
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", 10)
+                    .attr("fill", "magenta")
+                    .attr("transform", d => `rotate(-90,${x(d.date) + x.bandwidth() / 2},${y(d.Low)+54})`)
+                    .text(d => d3.timeFormat("%Y-%m-%d")(d.date));
+
+
+                svg.selectAll(".dividend-point")
+                    .data(filteredDividends)
+                    .enter()
+                    .append("circle")
+                    .attr("class", "dividend-point")
+                    .attr("cx", d => {
+                        // 找到該日期在K線data裡的對應資料
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return x(data[idx].date) + x.bandwidth()/2;
+                    })
+                    .attr("cy", d => {
+                        // 同理，取該天的Low或你想要的y位置
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return height - 16;
+                    })
+                    .attr("r", 7)
+                    .attr("fill", "green")
+                    .attr("opacity", 0.85);
+
+                    // 金額寫在圓點上方
+                    svg.selectAll(".dividend-label")
+                    .data(filteredDividends)
+                    .enter()
+                    .append("text")
+                    .attr("class", "dividend-label")
+                    .attr("x", d => {
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return x(data[idx].date) + x.bandwidth()/2;
+                    })
+                    .attr("y", d => {
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return height-32;
+                    })
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", 10)
+                    .attr("fill", "green")
+                    .text(d => d.dividend.toFixed(2));
+
                 // 十字線
                 const crosshairV = svg.append("line")
                     .attr("stroke", "#999")
@@ -738,8 +875,201 @@
                     .attr("fill", "none")
                     .attr("pointer-events", "all")
                     .on("mousemove", handleMove)
-                    .on("touchmove", handleMove)    
-                    .on("click", handleMove);
+                    .on("mousedown", function(event) {
+                        console.log("mousedown", event);
+                        startSelection(event);
+                    })
+                    .on("mouseup", function(event) {
+                        console.log("mouseup", event);
+                        endSelection(event);
+                    })
+                    .on("mouseleave", cancelSelection)
+                    .on("touchstart", startSelection)
+                    .on("touchmove", updateSelection)
+                    .on("touchend", endSelection);
+
+
+                let selectionStart = null; // {date, x, y}
+                let selectionEnd = null;
+
+                function startSelection(event) {
+                    console.log("startSelection")
+                    const [mx, my] = getPointer(event, svg.node());
+                    const xDate = getNearestDate(mx);
+                    selectionStart = { x: mx, y: my, date: xDate };
+                    selectionEnd = null;
+                    //redrawSelection();
+                }
+
+                function updateSelection(event) {
+                    if (!selectionStart) return;
+                    const [mx, my] = getPointer(event, svg.node());
+                    const xDate = getNearestDate(mx);
+                    selectionEnd = { x: mx, y: my, date: xDate };
+                    //redrawSelection();
+                }
+
+                function endSelection(event) {
+                    const [mx, my] = getPointer(event, svg.node());
+                    const xDate = getNearestDate(mx);
+                    selectionEnd = { x: mx, y: my, date: xDate };
+
+
+                    if (!selectionStart || !selectionEnd) {
+                        cancelSelection();
+                        return;
+                    }
+                    
+                    // 處理左、右點順序
+                    let left = selectionStart, right = selectionEnd;
+                    if (selectionStart.x > selectionEnd.x) {
+                        left = selectionEnd;
+                        right = selectionStart;
+                    }
+                    console.log(selectionStart)
+                    console.log(selectionEnd)
+                    console.log(left)
+                    console.log(right)
+                    const { percent, price1, price2, dateStr1, dateStr2, startIdx, endIdx } = calcReturn(left.date, right.date);
+                    showReturnLabel(percent, price1, price2, selectionStart, selectionEnd, startIdx, endIdx, dateStr1, dateStr2);
+                    
+                }
+
+                function cancelSelection() {
+                    selectionStart = null;
+                    selectionEnd = null;
+                    //redrawSelection();
+                }
+
+                function getPointer(event, svgNode) {
+                    // 支援滑鼠、觸控
+                    if (event.type && event.type.startsWith('touch')) {
+                        // touchstart/touchmove 用 event.touches[0]，touchend 用 event.changedTouches[0]
+                        let touch;
+                        if (event.type === "touchend" && event.changedTouches && event.changedTouches.length) {
+                            touch = event.changedTouches[0];
+                        } else if (event.touches && event.touches.length) {
+                            touch = event.touches[0];
+                        }
+                        if (touch) {
+                            const rect = svgNode.getBoundingClientRect();
+                            return [
+                                touch.clientX - rect.left,
+                                touch.clientY - rect.top
+                            ];
+                        }
+                        // 找不到 touch 時 fallback
+                        return [0, 0];
+                    } else {
+                        // 滑鼠、pen
+                        return d3.pointer(event, svgNode);
+                    }
+                }
+
+                function redrawSelection() {
+                    svg.selectAll(".selection-line").remove();
+                    svg.selectAll(".selection-dot").remove();
+                    svg.selectAll(".selection-label").remove();
+
+                    if (selectionStart && selectionEnd) {
+                        svg.append("line")
+                            .attr("class", "selection-line")
+                            .attr("x1", selectionStart.x)
+                            .attr("y1", selectionStart.y)
+                            .attr("x2", selectionEnd.x)
+                            .attr("y2", selectionEnd.y)
+                            .attr("stroke", "#007aff")
+                            .attr("stroke-width", 2);
+
+                        [selectionStart, selectionEnd].forEach(sel => {
+                            svg.append("circle")
+                                .attr("class", "selection-dot")
+                                .attr("cx", sel.x)
+                                .attr("cy", sel.y)
+                                .attr("r", 7)
+                                .attr("fill", "#34d399");
+                        });
+                    }
+                }
+
+                function calcReturn(date1, date2) {
+                    const idx1 = data.findIndex(d => +d.date === +date1);
+                    const idx2 = data.findIndex(d => +d.date === +date2);
+
+                    if (idx1 < 0 || idx2 < 0) return {percent: NaN};
+
+                    // 保證 idx1 <= idx2
+                    let startIdx = idx1, endIdx = idx2;
+                    if (idx1 > idx2) {
+                        startIdx = idx2;
+                        endIdx = idx1;
+                    }
+
+                    const price1 = data[startIdx].Close;
+                    const price2 = data[endIdx].Close;
+                    const dateStr1 = d3.timeFormat("%Y-%m-%d")(data[startIdx].date);
+                    const dateStr2 = d3.timeFormat("%Y-%m-%d")(data[endIdx].date);
+                    const percent = ((price2 - price1) / price1 * 100).toFixed(2);
+
+                    return { percent, price1, price2, dateStr1, dateStr2, startIdx, endIdx };
+                }
+
+                function showReturnLabel(percent, price1, price2, sel1, sel2, idx1, idx2, dateStr1, dateStr2) {
+                    svg.selectAll(".return-info-label").remove();
+
+                    // 右上角座標
+                    const labelX = width - 20;
+                    let yBase = 40;
+
+                    svg.append("rect")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX - 100)
+                        .attr("y", yBase - 38)
+                        .attr("width", 150)
+                        .attr("height", 100)
+                        .attr("fill", "#fff")
+                        .attr("opacity", 0.82)
+                        .attr("rx", 10);
+
+                    // 漲幅 %
+                    svg.append("text")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX)
+                        .attr("y", yBase)
+                        .attr("text-anchor", "end")
+                        .attr("font-size", 20)
+                        .attr("font-weight", "bold")
+                        .attr("fill", percent >= 0 ? "green" : "red")
+                        .text(`漲跌幅：${percent}%`);
+
+                    // 起點日期與價
+                    svg.append("text")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX)
+                        .attr("y", yBase + 28)
+                        .attr("text-anchor", "end")
+                        .attr("font-size", 14)
+                        .attr("fill", "#333")
+                        .text(`起始：${dateStr1} (${price1?.toFixed(2)})`);
+
+                    // 終點日期與價
+                    svg.append("text")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX)
+                        .attr("y", yBase + 52)
+                        .attr("text-anchor", "end")
+                        .attr("font-size", 14)
+                        .attr("fill", "#333")
+                        .text(`結束：${dateStr2} (${price2?.toFixed(2)})`);
+                }
+
+                function getNearestDate(mx) {
+                    // mx = 滑鼠在SVG內的x座標
+                    const domain = x.domain();
+                    const idx = Math.round(mx / x.step());
+                    const clampedIdx = Math.max(0, Math.min(idx, domain.length - 1));
+                    return domain[clampedIdx];
+                }
 
                 function handleMove(event) {
                     const [mx, my] = d3.pointer(event, svg.node());
@@ -801,7 +1131,7 @@
                 const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
                 const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
                 const margin = { top: 20, right: 40, bottom: 30, left: 50};
-                    width = baseW - margin.left - margin.right;
+                    width = baseW;
                     height = 600 - margin.top - margin.bottom;
                 const svg = d3.select("#chart-volume")
                     .append("svg")
@@ -843,7 +1173,7 @@
                         .tickFormat(d3.timeFormat("%m/%d"))
                     );
                 svg.append("g")
-                    .call(d3.axisLeft(y));
+                    .call(d3.axisLeft(y).tickFormat(d3.format(".2s")));// 2 位數 + 縮寫（K/M/B）
 
                 svg.selectAll("rect")
                     .data(data)
@@ -1001,6 +1331,26 @@
                     .attr("y2", y(30))
                     .attr("stroke", "green")
                     .attr("stroke-dasharray", "4 2");
+
+                svg.selectAll("rsi-cross")
+                    .data(data.filter(d => d.RSI_Cross30))
+                    .enter()
+                    .append("path")
+                    .attr("d", d => trianglePath(x(d.date) + x.bandwidth()/2, y(d.rsi) + 30, 14))
+                    .attr("fill", "red");
+
+                // 如果要offset在下方顯示標籤文字
+                svg.selectAll("rsi-label")
+                    .data(data.filter(d => d.RSI_Cross30))
+                    .enter()
+                    .append("text")
+                    .attr("x", d => x(d.date) + x.bandwidth()/2)
+                    .attr("y", d => y(d.rsi) + 70) // 24像素下方
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "red")
+                    .attr("font-size", "10px")
+                    .attr("transform", d => `rotate(-90, ${x(d.date) + x.bandwidth()/2}, ${y(d.rsi) + 70})`)
+                    .text(d => d3.timeFormat("%Y-%m-%d")(d.date));
 
                 // 十字線
                 const crosshairV = svg.append("line")
@@ -1188,6 +1538,26 @@
                     .attr("stroke-width", 2)
                     .attr("d", signalLine);
 
+                // MACD Golden Cross
+                svg.selectAll("macd-cross")
+                    .data(data.filter(d => d.MACD_GC))
+                    .enter()
+                    .append("path")
+                    .attr("d", d => trianglePath(x(d.date) + x.bandwidth()/2, y(d.macd)+16, 14))
+                    .attr("fill", "purple");
+
+                svg.selectAll("macd-cross-label")
+                    .data(data.filter(d => d.MACD_GC))
+                    .enter()
+                    .append("text")
+                    .attr("x", d => x(d.date) + x.bandwidth()/2)
+                    .attr("y", d => y(d.macd) + 56)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "purple")
+                    .attr("font-size", 10)
+                    .attr("transform", d => `rotate(-90,${x(d.date) + x.bandwidth()/2},${y(d.macd) + 56})`)
+                    .text(d => d3.timeFormat("%Y-%m-%d")(d.date));
+
                 // 十字線
                 const crosshairV = svg.append("line")
                     .attr("stroke", "#999")
@@ -1261,6 +1631,89 @@
                     box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
                     box.classList.remove("hidden");
                 }
+            }
+
+            function trianglePath(cx, cy, size) {
+                // 正三角形頂點
+                const h = Math.sqrt(3) / 2 * size;
+                return `
+                M ${cx},${cy-h/2}
+                L ${cx - size/2},${cy + h/2}
+                L ${cx + size/2},${cy + h/2}
+                Z
+                `;
+            }
+
+            // 目標達標率表格
+            function renderGoalTable(heat_goal_detail) {
+                // heat_goal_detail: {天數: {目標報酬: 機率}, ...}
+                const area = document.getElementById('goal-table-area');
+                area.innerHTML = '';
+
+                // 取得所有天數與報酬目標
+                const days = Object.keys(heat_goal_detail).sort((a, b) => +a - +b);
+                const goals = new Set();
+                days.forEach(day => {
+                    Object.keys(heat_goal_detail[day] || {}).forEach(goal => goals.add(goal));
+                });
+                const goalsArr = Array.from(goals).sort((a, b) => +a - +b);
+
+                // 建表
+                let html = `<table class="min-w-full border text-sm"><thead><tr><th class="border p-1">目標%/天數</th>`;
+                days.forEach(day => html += `<th class="border p-1">${day}天</th>`);
+                html += '</tr></thead><tbody>';
+                goalsArr.forEach(goal => {
+                    html += `<tr><td class="border p-1">${goal}%</td>`;
+                    days.forEach(day => {
+                        const val = heat_goal_detail[day]?.[goal] ?? '';
+                        html += `<td class="border p-1 text-right">${val === '' ? '-' : (val.toFixed(1) + '%')}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                area.innerHTML = html;
+            }
+
+            // 配息後報酬表格
+            function renderDividendTable(heat_dividend_detail) {
+                // heat_dividend_detail: [ {date, pre_close, max_return_10d, ...}, ... ]
+                const area = document.getElementById('dividend-table-area');
+                area.innerHTML = '';
+
+                if (!heat_dividend_detail || heat_dividend_detail.length === 0) {
+                    area.innerHTML = '<p class="text-gray-500">查無配息日資料。</p>';
+                    return;
+                }
+
+                // 取得所有 max_return_Nd 欄位
+                const example = heat_dividend_detail[0] || {};
+                const returnKeys = Object.keys(example).filter(k => k.startsWith('max_return_'));
+                returnKeys.sort((a, b) => {
+                    // max_return_10d -> 10，max_return_20d -> 20
+                    return parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]);
+                });
+
+                // 建表
+                let html = `<table class="min-w-full border text-sm"><thead><tr>
+                    <th class="border p-1">配息日</th>
+                    <th class="border p-1">配息前收盤</th>`;
+                returnKeys.forEach(k => {
+                    html += `<th class="border p-1">${k.replace('max_return_', '').replace('d', '')}天最大漲幅%</th>`;
+                });
+                html += '</tr></thead><tbody>';
+
+                heat_dividend_detail.forEach(row => {
+                    html += `<tr>
+                        <td class="border p-1">${row.date}</td>
+                        <td class="border p-1 text-right">${row.pre_close?.toFixed(2) ?? '-'}</td>`;
+                    returnKeys.forEach(k => {
+                        const val = row[k];
+                        html += `<td class="border p-1 text-right">${val === undefined ? '-' : (val.toFixed(2) + '%')}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                area.innerHTML = html;
             }
 
             window.addEventListener('DOMContentLoaded', () => {
