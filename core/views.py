@@ -1,9 +1,6 @@
 import base64
 import io
-<<<<<<< HEAD
 import math
-=======
->>>>>>> origin/main
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required 
 import json
@@ -17,10 +14,7 @@ from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
-<<<<<<< HEAD
 from dotenv import load_dotenv
-=======
->>>>>>> origin/main
 import os
 from datetime import datetime, timedelta
 from django.http import JsonResponse
@@ -60,11 +54,6 @@ def get_rsi_crossover_stocks(request):
     data = data.sort_index()
     rsi_crossover = []
 
-<<<<<<< HEAD
-    
-
-=======
->>>>>>> origin/main
     for ticker in sp500:
         try:
             #print(ticker)
@@ -117,7 +106,6 @@ def stockdata_api(request):
 
     else:
         return JsonResponse({'status': 'error', 'msg': '不支援的方法'}, status=405)
-<<<<<<< HEAD
     
 
 import requests
@@ -170,16 +158,12 @@ def translate_news_items(news_items, to_lang="zh-Hant"):
     # 可選：標記語言
     # 你也可以在外層加個 news_lang，如果需要的話
     return news_items
-=======
->>>>>>> origin/main
 
 def stock_api(request, symbol):
     symbol = symbol.upper()
     period = '10y'
     stock_data = fetch_stock_data([symbol], period='1y')
 
-<<<<<<< HEAD
-    
 
     news_list = []
     for news in stock_data[symbol]['news']:
@@ -195,19 +179,18 @@ def stock_api(request, symbol):
 
     #print(news_list_translated)
 
-=======
->>>>>>> origin/main
     holding_days = [5, 10, 15, 20, 30, 40]
 
     goals=[2, 4, 6, 8, 10]
 
     historical_data = fetch_historical_data(symbol,period=period,holding_days=holding_days, goals=goals)
 
-<<<<<<< HEAD
-=======
     if historical_data is None or historical_data.empty:
         return JsonResponse({"error": "無 RSI 資料或事件"}, status=400)
->>>>>>> origin/main
+
+    if historical_data is None or historical_data.empty:
+        return JsonResponse({"error": "無 RSI 資料或事件"}, status=400)
+
     
     # 
     # return_cols = [f"Return_{n}d(%)" for n in holding_days]
@@ -243,7 +226,6 @@ def stock_api(request, symbol):
     df['RSI_Cross30'] = (df['RSI'].shift(1) < 30) & (df['RSI'] >= 30)
 
     # ----------- 畫圖 -----------
-<<<<<<< HEAD
     # fig, axes = plt.subplots(3, 1, figsize=(16, 12), sharex=True, gridspec_kw={'height_ratios':[3,1.2,1]})
 
     
@@ -344,7 +326,7 @@ def stock_api(request, symbol):
     # img_base64_tech = base64.b64encode(buf.read()).decode('utf-8')
     # buf.close()
     # plt.close()
-=======
+
     fig, axes = plt.subplots(3, 1, figsize=(16, 12), sharex=True, gridspec_kw={'height_ratios':[3,1.2,1]})
 
     
@@ -445,14 +427,13 @@ def stock_api(request, symbol):
     img_base64_tech = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
     plt.close()
->>>>>>> origin/main
+
 
 
     goal_cols = [col for col in historical_data.columns if re.match(r'G_([\d\.]+)%_(\d+)d', col)]
     goals = sorted({float(re.match(r'G_([\d\.]+)%', col).group(1)) for col in goal_cols})
     days = sorted({int(re.match(r'G_[\d\.]+%_(\d+)d', col).group(1)) for col in goal_cols})
 
-<<<<<<< HEAD
     
 
     if historical_data.empty:
@@ -490,7 +471,6 @@ def stock_api(request, symbol):
 
     
     
-=======
     # 熱力圖
     heatmap_data = pd.DataFrame(index=goals, columns=days)
     for t in goals:
@@ -518,17 +498,14 @@ def stock_api(request, symbol):
     img_base64_heat_goal = base64.b64encode(buf.read()).decode('utf-8')
     buf.close()
     plt.close()
->>>>>>> origin/main
 
     # 假設 historical_data 為完整 df，有 DateTimeIndex，有 'Close' 欄
     # dividends 為配息日 datetime 的 list (或 Series)
     dividends = stock_data[symbol]['dividends']
     days = [10, 20, 30, 40, 50, 60]
     results = {d: [] for d in days}
-<<<<<<< HEAD
-=======
-    print(dividends)
->>>>>>> origin/main
+
+
 
     for div_date in dividends.index:
         if div_date not in df.index:
@@ -598,7 +575,6 @@ def stock_api(request, symbol):
         for dt, v in stock_data[symbol]['dividends'].items()
     ]
 
-<<<<<<< HEAD
     # 1) 整體比例（機構/內部人持股）
     info = {}
     try:
@@ -671,9 +647,8 @@ def stock_api(request, symbol):
         major = []
         major.append({"label": "holder", "value": "Can't find data"})
 
-    print(major)
-=======
->>>>>>> origin/main
+
+
 
     price_data = df.to_dict(orient='records')
     price_data = nan_to_none(price_data)  # 這步最重要！
@@ -688,17 +663,13 @@ def stock_api(request, symbol):
         dividend_date = "找不到配息日資料"
         exDividend_Date = "找不到配息日資料"
     
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/main
     return JsonResponse({
         "symbol": symbol,
         'heatmap_goal': img_base64_heat_goal,
         'heatmap_goal_detail': heat_goal_detail,
         'heatmap_div': img_base64_heat_div,
         'heatmap_div_detail': dividend_list,
-<<<<<<< HEAD
         "institution_overview": info,      # {institution_percent, insider_percent}
         "institutional_holders": holders,  # list of dict
         "major_holders": major,       # list of {label, value}
@@ -706,11 +677,12 @@ def stock_api(request, symbol):
         "event_count": len(historical_data),
         'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
         'news_list':news_list_translated,
-=======
         'techmap': img_base64_tech,
         "event_count": len(historical_data),
         'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
->>>>>>> origin/main
+        'techmap': img_base64_tech,
+        "event_count": len(historical_data),
+        'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
         'sector': stock_data[symbol]['info'].get('sector',"(Empty)"),
         'industry': stock_data[symbol]['info'].get('industry',"(Empty)"),
         'market_cap': stock_data[symbol]['info'].get('marketCap',"(Empty)"),
@@ -741,7 +713,6 @@ def stock_api(request, symbol):
         'price_data': price_data,
     })
 
-<<<<<<< HEAD
 def empty_heatmap_base64(text="沒有資料 / No Signal"):
     plt.figure(figsize=(6, 2))
     plt.text(0.5, 0.5, text, fontsize=20, color='gray',
@@ -755,9 +726,6 @@ def empty_heatmap_base64(text="沒有資料 / No Signal"):
     buf.close()
     return img_base64
 
-
-=======
->>>>>>> origin/main
 def stock_input_view(request):
     return render(request, 'core/RSI_Cross.html')
 

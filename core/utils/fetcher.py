@@ -41,7 +41,9 @@ def fetch_historical_data(symbol, period='10y', holding_days=[5, 10, 15, 20], go
 
             signals.append(row)
 
-    
+    if not signals:
+        return "近五年無 RSI 上穿 30 的事件"
+
     # 整理 DataFrame
     cols = ['BuyDate', 'BuyPrice']
     for n in holding_days:
@@ -126,6 +128,7 @@ def fetch_stock_data(symbols, period='3mo', interval='1d'):
                 'news': news,
                 'institutional_holders': institutional_holders,
                 'major_holders': major_holders,
+                'dividends': dividends
             }
 
         except Exception as e:

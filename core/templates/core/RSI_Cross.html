@@ -165,7 +165,6 @@
             }
 
             function addOrSwitchTab(symbol, category = '') {
-                console.log(category)
                 
                 // 標籤樣式管理
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
@@ -222,7 +221,9 @@
                     renderGoalTable(heatmap_goal_detail[symbol]);
                     renderDividendTable(heatmap_div_detail[symbol]);
 
+
                     renderNewsArea(news_list);
+
 
                     // 先全部隱藏
                     document.getElementById('goal-heatmap-area').style.display = 'none';
@@ -243,7 +244,6 @@
                     .then(data => {
                         const priceData = data.price_data;
                         const dividends = data.dividends;
-                        console.log(data.major_holders)
                         const content = document.getElementById('tab-content');
                         const imgHTML = `
                         <h2 class="text-xl font-bold mb-2">${data.symbol} RSI 策略分析</h2>
@@ -537,6 +537,7 @@
                             </div>
                         </div>
                         <!--<img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />-->
+                        <img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />
                         
                         <div id="goal-heatmap-area" style="display:none;" class="mb-8 bg-white rounded-xl shadow p-4">
                             <img src="data:image/png;base64,${data.heatmap_goal}" class="max-w-full border rounded shadow" />
@@ -636,7 +637,6 @@
                         heatmap_div_detail[symbol] = data.heatmap_div_detail
                         news_saved[symbol] = data.news_list
                         stockContentDict[symbol] = content.innerHTML;
-                        
 
                         // 只顯示當前 tab（避免 race condition）
                         if (activeTab === symbol) {
@@ -747,7 +747,6 @@
             }
 
             setInterval(fetchData, 100000);
-
 
             // 安全轉義（避免把原文注入成 HTML）
             function escapeHTML(str = "") {
@@ -1873,7 +1872,9 @@
                     `<p class="text-gray-500">請新增並點選股票頁籤</p>`;
                 }
             }
+            
             sendData()
+
         </script>
         <style >
             .tab {
