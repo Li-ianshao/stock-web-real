@@ -1,6 +1,9 @@
 import base64
 import io
+<<<<<<< HEAD
 import math
+=======
+>>>>>>> origin/main
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required 
 import json
@@ -14,7 +17,10 @@ from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
+<<<<<<< HEAD
 from dotenv import load_dotenv
+=======
+>>>>>>> origin/main
 import os
 from datetime import datetime, timedelta
 from django.http import JsonResponse
@@ -54,8 +60,11 @@ def get_rsi_crossover_stocks(request):
     data = data.sort_index()
     rsi_crossover = []
 
+<<<<<<< HEAD
     
 
+=======
+>>>>>>> origin/main
     for ticker in sp500:
         try:
             #print(ticker)
@@ -108,6 +117,7 @@ def stockdata_api(request):
 
     else:
         return JsonResponse({'status': 'error', 'msg': '不支援的方法'}, status=405)
+<<<<<<< HEAD
     
 
 import requests
@@ -160,12 +170,15 @@ def translate_news_items(news_items, to_lang="zh-Hant"):
     # 可選：標記語言
     # 你也可以在外層加個 news_lang，如果需要的話
     return news_items
+=======
+>>>>>>> origin/main
 
 def stock_api(request, symbol):
     symbol = symbol.upper()
     period = '10y'
     stock_data = fetch_stock_data([symbol], period='1y')
 
+<<<<<<< HEAD
     
 
     news_list = []
@@ -182,12 +195,19 @@ def stock_api(request, symbol):
 
     #print(news_list_translated)
 
+=======
+>>>>>>> origin/main
     holding_days = [5, 10, 15, 20, 30, 40]
 
     goals=[2, 4, 6, 8, 10]
 
     historical_data = fetch_historical_data(symbol,period=period,holding_days=holding_days, goals=goals)
 
+<<<<<<< HEAD
+=======
+    if historical_data is None or historical_data.empty:
+        return JsonResponse({"error": "無 RSI 資料或事件"}, status=400)
+>>>>>>> origin/main
     
     # 
     # return_cols = [f"Return_{n}d(%)" for n in holding_days]
@@ -223,6 +243,7 @@ def stock_api(request, symbol):
     df['RSI_Cross30'] = (df['RSI'].shift(1) < 30) & (df['RSI'] >= 30)
 
     # ----------- 畫圖 -----------
+<<<<<<< HEAD
     # fig, axes = plt.subplots(3, 1, figsize=(16, 12), sharex=True, gridspec_kw={'height_ratios':[3,1.2,1]})
 
     
@@ -323,12 +344,115 @@ def stock_api(request, symbol):
     # img_base64_tech = base64.b64encode(buf.read()).decode('utf-8')
     # buf.close()
     # plt.close()
+=======
+    fig, axes = plt.subplots(3, 1, figsize=(16, 12), sharex=True, gridspec_kw={'height_ratios':[3,1.2,1]})
+
+    
+    dates = df.index
+    candle_w = 2  # 使用時間軸，width設2天
+
+    n_labels = 12
+    date_ticks = np.linspace(0, len(df.index) - 1, n_labels, dtype=int)
+    date_labels = [df.index[i].strftime('%Y-%m-%d') for i in date_ticks]
+
+    for ax in axes:
+        ax.set_xticks(df.index[date_ticks])
+        ax.set_xticklabels(date_labels, rotation=45, ha='right', fontsize=12)
+            
+        
+
+    # 1. K線 + BBAND + 量
+    ax = axes[0]
+    up = df['Close'] >= df['Open']
+    down = ~up
+    ax.bar(dates[up], df['Close'][up]-df['Open'][up], candle_w, bottom=df['Open'][up], color='green', edgecolor='k', label='Up')
+    ax.bar(dates[down], df['Close'][down]-df['Open'][down], candle_w, bottom=df['Open'][down], color='red', edgecolor='k', label='Down')
+    ax.vlines(dates, df['Low'], df['High'], color='black', linewidth=0.5)
+    ax.plot(dates, df['BB_Upper'], color='blue', linestyle='--', label='BBand Upper')
+    ax.plot(dates, df['BB_Lower'], color='blue', linestyle='--', label='BBand Lower')
+    bb_cross = df[df['BB_Lower_Cross']]
+    ax.scatter(bb_cross.index, bb_cross['Low']*0.98, color='magenta', marker='o', s=60, label='BBand Lower Break')
+    for idx, row in bb_cross.iterrows():
+        y = row['Low']*0.96
+        date_str = idx.strftime('%Y-%m-%d')
+        ax.text(idx, y, date_str, color='magenta', fontsize=8, rotation=90, ha='center', va='top')
+    ax2 = ax.twinx()
+    ax2.bar(dates, df['Volume'], width=candle_w, color='navy', alpha=0.4, label='Volume')
+    ax2.set_ylim(0, df['Volume'].max()*5)
+    ax2.axis('off')
+    ax.set_ylabel("Price")
+    ax.set_title(f"{symbol} Candlestick / BBands / Volume")
+    ax.legend(loc='upper left')
+
+    # 2. MACD
+    # 先計算 histogram 變動方向
+    hist = df['MACD_hist'].values
+    # 上一根
+    hist_prev = np.roll(hist, 1)
+    hist_prev[0] = np.nan
+
+    # 分類
+    cond1 = (hist > 0) & (hist > hist_prev)      # 上面且繼續走高 → 亮綠
+    cond2 = (hist > 0) & (hist <= hist_prev)     # 上面但回落   → 暗綠
+    cond3 = (hist < 0) & (hist < hist_prev)      # 下面繼續走低 → 紅色
+    cond4 = (hist < 0) & (hist >= hist_prev)     # 下面但回升   → 暗紅
+
+    dates = df.index
+
+    ax = axes[1]
+    pos = df['MACD_hist'] > 0
+    neg = ~pos
+    # ax.bar(dates[pos], df.loc[pos, 'MACD_hist'], color='green', alpha=0.85, label='MACD Hist +')
+    # ax.bar(dates[neg], df.loc[neg, 'MACD_hist'], color='red', alpha=0.85, label='MACD Hist -')
+    ax.bar(dates[cond1], hist[cond1], color='#22c55e', alpha=0.9, label='MACD Hist up ↑')    # 亮綠
+    ax.bar(dates[cond2], hist[cond2], color='#166534', alpha=0.85, label='MACD Hist weak ↑') # 暗綠
+    ax.bar(dates[cond3], hist[cond3], color='#ef4444', alpha=0.85, label='MACD Hist down ↓') # 紅
+    ax.bar(dates[cond4], hist[cond4], color='#7f1d1d', alpha=0.85, label='MACD Hist weak ↓') # 暗紅
+    ax.plot(dates, df['MACD'], color='blue', label='MACD')
+    ax.plot(dates, df['MACD_signal'], color='orange', label='Signal')
+    macd_cross = df[df['MACD_GC']]
+    ax.scatter(macd_cross.index, macd_cross['MACD'], color='purple', marker='^', s=80, label='MACD Golden Cross')
+    for idx, row in macd_cross.iterrows():
+        y = row['MACD']-1 if row['MACD'] > 0 else row['MACD']+1
+        date_str = idx.strftime('%Y-%m-%d')
+        ax.text(idx, y, date_str, color='red', fontsize=8, rotation=90, ha='center', va='top')
+    ax.set_ylabel('MACD')
+    ax.set_title("MACD")
+    ax.legend(loc='upper left')
+
+    # 3. RSI
+    ax = axes[2]
+    ax.plot(dates, df['RSI'], color='purple', label='RSI')
+    ax.axhline(30, color='grey', linestyle='--', lw=1)
+    rsi_cross = df[df['RSI_Cross30']]
+    ax.scatter(rsi_cross.index, rsi_cross['RSI'], color='red', marker='^', s=80, label='RSI Crossover 30')
+    for idx, row in rsi_cross.iterrows():
+        y = row['RSI']*0.97
+        date_str = idx.strftime('%Y-%m-%d')
+        ax.text(idx, y, date_str, color='purple', fontsize=8, rotation=90, ha='center', va='top')
+    ax.set_ylabel('RSI')
+    ax.set_title("RSI")
+    ax.legend(loc='upper left')
+
+    # x軸日期旋轉
+    plt.setp(axes[-1].xaxis.get_majorticklabels(), rotation=45, ha='right')
+    fig.tight_layout()
+    fig.autofmt_xdate()
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    img_base64_tech = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+    plt.close()
+>>>>>>> origin/main
 
 
     goal_cols = [col for col in historical_data.columns if re.match(r'G_([\d\.]+)%_(\d+)d', col)]
     goals = sorted({float(re.match(r'G_([\d\.]+)%', col).group(1)) for col in goal_cols})
     days = sorted({int(re.match(r'G_[\d\.]+%_(\d+)d', col).group(1)) for col in goal_cols})
 
+<<<<<<< HEAD
     
 
     if historical_data.empty:
@@ -366,12 +490,45 @@ def stock_api(request, symbol):
 
     
     
+=======
+    # 熱力圖
+    heatmap_data = pd.DataFrame(index=goals, columns=days)
+    for t in goals:
+        t_fmt = int(t) if t == int(t) else t
+        for d in days:
+            col = f'G_{t_fmt}%_{d}d'
+            if col in historical_data.columns:
+                heatmap_data.loc[t, d] = historical_data[col].mean() * 100
+    heatmap_data = heatmap_data.astype(float)
+
+    plt.figure(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10,6))
+    sns.heatmap(heatmap_data.iloc[::-1], annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
+    ax.set_title("Achievement Rate vs Holding Days")
+    ax.set_xlabel("Holding Days")
+    ax.set_ylabel("Target Return (%)")
+
+    # 目標達標機率列表
+    heat_goal_detail = heatmap_data.round(2).to_dict()  # {天數: {目標報酬: 機率%}}
+
+    # 儲存為 base64 圖片
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    img_base64_heat_goal = base64.b64encode(buf.read()).decode('utf-8')
+    buf.close()
+    plt.close()
+>>>>>>> origin/main
 
     # 假設 historical_data 為完整 df，有 DateTimeIndex，有 'Close' 欄
     # dividends 為配息日 datetime 的 list (或 Series)
     dividends = stock_data[symbol]['dividends']
     days = [10, 20, 30, 40, 50, 60]
     results = {d: [] for d in days}
+<<<<<<< HEAD
+=======
+    print(dividends)
+>>>>>>> origin/main
 
     for div_date in dividends.index:
         if div_date not in df.index:
@@ -441,6 +598,7 @@ def stock_api(request, symbol):
         for dt, v in stock_data[symbol]['dividends'].items()
     ]
 
+<<<<<<< HEAD
     # 1) 整體比例（機構/內部人持股）
     info = {}
     try:
@@ -514,6 +672,8 @@ def stock_api(request, symbol):
         major.append({"label": "holder", "value": "Can't find data"})
 
     print(major)
+=======
+>>>>>>> origin/main
 
     price_data = df.to_dict(orient='records')
     price_data = nan_to_none(price_data)  # 這步最重要！
@@ -528,13 +688,17 @@ def stock_api(request, symbol):
         dividend_date = "找不到配息日資料"
         exDividend_Date = "找不到配息日資料"
     
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
     return JsonResponse({
         "symbol": symbol,
         'heatmap_goal': img_base64_heat_goal,
         'heatmap_goal_detail': heat_goal_detail,
         'heatmap_div': img_base64_heat_div,
         'heatmap_div_detail': dividend_list,
+<<<<<<< HEAD
         "institution_overview": info,      # {institution_percent, insider_percent}
         "institutional_holders": holders,  # list of dict
         "major_holders": major,       # list of {label, value}
@@ -542,6 +706,11 @@ def stock_api(request, symbol):
         "event_count": len(historical_data),
         'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
         'news_list':news_list_translated,
+=======
+        'techmap': img_base64_tech,
+        "event_count": len(historical_data),
+        'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
+>>>>>>> origin/main
         'sector': stock_data[symbol]['info'].get('sector',"(Empty)"),
         'industry': stock_data[symbol]['info'].get('industry',"(Empty)"),
         'market_cap': stock_data[symbol]['info'].get('marketCap',"(Empty)"),
@@ -572,6 +741,7 @@ def stock_api(request, symbol):
         'price_data': price_data,
     })
 
+<<<<<<< HEAD
 def empty_heatmap_base64(text="沒有資料 / No Signal"):
     plt.figure(figsize=(6, 2))
     plt.text(0.5, 0.5, text, fontsize=20, color='gray',
@@ -586,6 +756,8 @@ def empty_heatmap_base64(text="沒有資料 / No Signal"):
     return img_base64
 
 
+=======
+>>>>>>> origin/main
 def stock_input_view(request):
     return render(request, 'core/RSI_Cross.html')
 
