@@ -115,13 +115,13 @@ import requests
 # 載入 .env 檔案
 load_dotenv()
 
+
 AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
 AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
 AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
 
-print(AZURE_TRANSLATOR_KEY)
-
 def azure_translate_texts(texts, to_lang="zh-Hant", timeout=15, chunk_size=50):
+    
     if not texts:
         return []
     url = f"{AZURE_TRANSLATOR_ENDPOINT}?api-version=3.0&to={to_lang}"
