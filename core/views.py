@@ -164,15 +164,18 @@ def stock_api(request, symbol):
     period = '10y'
     stock_data = fetch_stock_data([symbol], period='1y')
 
-
+    print(stock_data[symbol]['news'])
     news_list = []
-    for news in stock_data[symbol]['news']:
+    for news in stock_data.get(symbol, {}).get('news', []):
+        content = news.get('content', {}) or {}
+        click_url = content.get('clickThroughUrl', {}) or {}
+
         news_list.append({
-            "title": news['content']['title'],
-            "pubDate": news['content']['pubDate'],
-            "provider": news['content']['provider'],
-            "link": news['content']['clickThroughUrl']['url'],
-            "summary": news['content']['summary']
+            "title": content.get('title') or "(No title)",
+            "pubDate": content.get('pubDate') or "(No date)",
+            "provider": content.get('provider') or "(No provider)",
+            "link": click_url.get('url') or "",
+            "summary": content.get('summary') or "(No summary)"
         })
 
     news_list_translated = translate_news_items(news_list)
