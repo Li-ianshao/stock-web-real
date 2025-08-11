@@ -1,0 +1,55 @@
+name: Daily Cache Refresh
+
+on:
+  # schedule:
+  #   - cron: '0 22 * * 1-5'  # UTC時間
+  workflow_dispatch:       # 允許手動觸發（測試用）
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django management command
+        env:
+          DJANGO_SETTINGS_MODULE: stockweb.settings  # 請依實際名稱修改
+        run: |
+          python manage.py refresh_cache_data
+
+      - name: Commit and push updated cache
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cache/*.pico cache/last_updated.txt
+          git commit -m "每日快取更新：${{ github.run_id }}" || echo "Nothing to commit"
+          git push
+
+      - name: Run migrations
+        run: |
+          python manage.py migrate
+
+      - name: Create Django superuser (if not exists)
+        run: echo "from django.contrib.auth import get_user_model; import os; User = get_user_model(); User.objects.filter(username='shao').exists() or User.objects.create_superuser('shao', 'admin@example.com', '50202')" | python manage.py shell
+
+
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'stock-web-real'
+          slot-name: 'Production'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_4CD4FD15ECAC45078F78C104A74C0A6F }}
+          package: .

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>股票分析平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- 導覽列 -->
+    <nav class="bg-white shadow p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-indigo-600">S&P 500 技術與配息分析平台</h1>
+        <p class="text-sm text-gray-500 text-right">
+            📅 最後更新時間：{{ last_updated }}
+        </p>
+        <div class="text-sm text-gray-700">
+            您好，{{ request.user.username }} |
+            <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-sm text-red-500 hover:text-red-700 transition">登出</button>
+            </form>
+            <!-- <a href="{% url 'clear_cache' %}" class="ml-4 text-sm text-yellow-600 hover:text-yellow-800 transition">
+                清除pico檔案
+            </a> -->
+
+        </div>
+    </nav>
+
+    
+    <!-- 頁籤按鈕區 -->
+    <div class="bg-indigo-100 p-4 flex flex-wrap justify-center space-x-2 text-sm font-medium">
+        {% with request.path as path %}
+            {% if path == '/core/dividend/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">高殖利率</span>
+            {% else %}
+                <a href="{% url 'tab_dividend' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">高殖利率</a>
+            {% endif %}
+
+            {% if path == '/core/rsi/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">RSI 警示</span>
+            {% else %}
+                <a href="{% url 'tab_rsi' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">RSI 警示</a>
+            {% endif %}
+
+            {% if path == '/core/bband/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">布林通道</span>
+            {% else %}
+                <a href="{% url 'tab_bband' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">布林通道</a>
+            {% endif %}
+
+            {% if path == '/core/macd/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">MACD 黃金交叉</span>
+            {% else %}
+                <a href="{% url 'tab_macd' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">MACD 黃金交叉</a>
+            {% endif %}
+
+            {% if path == '/core/drop/' %}
+                <span class="px-4 py-2 bg-white border-b-4 border-indigo-500 text-indigo-700 font-bold rounded shadow">一月內跌幅超過 30%</span>
+            {% else %}
+                <a href="{% url 'tab_drop' %}" class="px-4 py-2 bg-white rounded shadow hover:bg-indigo-100">一月內跌幅超過 30%</a>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- 主內容區塊 -->
+    <main class="p-4 max-w-full overflow-x-auto">
+    <table class="min-w-[1000px] w-full text-sm text-left text-gray-700">
+        <thead class="bg-indigo-100 text-gray-800">
+            <tr>
+                {% for col in column_headers %}
+                <th onclick="sortTable('{{ col.key }}')"
+                    data-key="{{ col.key }}"
+                    class="px-4 py-2 cursor-pointer select-none text-left">
+                    {{ col.label }}
+                    <span id="arrow-{{col.key}}"></span>
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody id="stock-table-body">
+            {% for stock in stocks %}
+            <tr class="{% if stock.dividend == 0 %}bg-red-50{% endif %} border-b">
+                <td data-key="symbol" data-value="{{stock.symbol}}" class="px-4 py-2 font-semibold text-blue-700 hover:underline">
+                    <a href="{% url 'stock_detail' stock.symbol %}">{{ stock.symbol }}</a>
+                </td>
+                <td data-key="close" data-value="{{stock.close}}" class="px-4 py-2">{{ stock.close }}</td>
+                <td data-key="ex_date" data-value="{{stock.ex_dividend_date}}" class="px-4 py-2 {% if stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.ex_dividend_date }}</td>
+                <td data-key="dividend" data-value="{{stock.dividend}}" class="px-4 py-2 {% if stock.dividend == 0 or stock.dividend == '0' or stock.dividend == 'N/A' %}text-gray-400{% endif %}">{{ stock.dividend }}</td>
+                <td data-key="dividend_ratio" data-value="{{stock.dividend_ratio}}" class="px-4 py-2 {% if stock.dividend_ratio == 0 or stock.dividend_ratio == '0' or stock.dividend_ratio == 'N/A' %}text-gray-400{% endif %}">
+                    {{ stock.dividend_ratio }}
+                    {% if stock.dividend_ratio != 'N/A' %}
+                        %
+                    {% endif %}
+                </td>
+                <td data-key="yield" data-value="{{stock.yield}}" class="px-4 py-2 {% if stock.yield == 0 or stock.yield == '0' or stock.yield == 'N/A' %}text-gray-400{% endif %}">
+                    {{ stock.yield }}%
+                </td>
+                <td data-key="price_change" data-value="{{stock.price_change}}" class="px-4 py-2 {% if stock.daily_change|floatformat:2 < alert_change|floatformat:2 and stock.daily_change|floatformat:2 < 0 %}text-yellow-600 font-bold{% endif %}">
+                    {{ stock.price_change }}%
+                </td>
+                <td data-key="year_low" data-value="{{stock.year_low}}" class="px-4 py-2">{{ stock.year_low }}</td>
+                <td data-key="year_high" data-value="{{stock.year_high}}" class="px-4 py-2">{{ stock.year_high }}</td>
+                <td data-key="rsi" data-value="{{stock.year_low}}" class="px-4 py-2 
+                    {% if stock.rsi > rsi_high_warn %}text-red-600
+                    {% elif stock.rsi > rsi_high_soft %}text-orange-500
+                    {% elif stock.rsi < rsi_low_warn %}text-red-600
+                    {% elif stock.rsi < rsi_low_soft %}text-blue-500
+                    {% endif %}">
+                    {{ stock.rsi }}
+                </td>
+                <td data-key="volume_delta" data-value="{{stock.volume_delta}}" class="px-4 py-2 {% if stock.volume_delta > alert_volume %}bg-yellow-100{% endif %}">{{ stock.volume_delta }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</main>
+
+<!-- 🔽 表格排序功能 -->
+<script>
+    let activeTab = null;
+
+    function addTab() {
+      const input = document.getElementById('symbol-input');
+      const symbol = input.value.trim().toUpperCase();
+      if (!symbol || document.getElementById(`tab-${symbol}`)) return;
+
+      // 新增 tab 導覽列按鈕
+      const tabHeader = document.getElementById('tab-header');
+      const newTab = document.createElement('button');
+      newTab.textContent = symbol;
+      newTab.className = "px-4 py-2 border rounded mr-2 bg-white hover:bg-gray-200";
+      newTab.id = `tab-${symbol}`;
+      newTab.onclick = () => switchTab(symbol);
+      tabHeader.appendChild(newTab);
+
+      // 預設不抓資料，等切換時再抓
+      input.value = '';
+    }
+
+    function switchTab(symbol) {
+      if (activeTab === symbol) return;
+      activeTab = symbol;
+
+      const content = document.getElementById('tab-content');
+      content.innerHTML = `<p class="text-gray-500">載入 ${symbol} 資料中...</p>`;
+
+      fetch(`/api/stock/${symbol}/`)
+        .then(res => res.json())
+        .then(data => {
+          content.innerHTML = `
+            <h2 class="text-xl font-bold mb-2">${data.symbol}</h2>
+            <p>這裡是你未來要顯示的分析資料區</p>
+          `;
+        })
+        .catch(err => {
+          content.innerHTML = `<p class="text-red-500">取得 ${symbol} 資料時發生錯誤</p>`;
+        });
+    }
+
+
+
+    let sortOrder = 1;
+    let lastSortedColumn = -1;
+    
+    
+
+    function sortTable(colKey) {
+        console.log(colKey)
+        const table = document.getElementById("stock-table-body");
+        const rows = Array.from(table.rows);
+
+        // 儲存排序狀態（每個欄位都記住升降）
+        if (!sortTable.sortOrder) {
+            sortTable.sortOrder = {};
+        }
+        sortTable.sortOrder[colKey] = !sortTable.sortOrder[colKey];
+
+        const isAsc = sortTable.sortOrder[colKey];
+
+        rows.sort((a, b) => {
+            const cellA = a.querySelector(`[data-key='${colKey}']`);
+            const cellB = b.querySelector(`[data-key='${colKey}']`);
+            if (!cellA || !cellB) return 0;
+
+
+            let valA = cellA.getAttribute("data-value") || cellA.innerText;
+            let valB = cellB.getAttribute("data-value") || cellB.innerText;
+
+            console.log(valA)
+            console.log(valB)
+
+            // 嘗試轉換為數字
+            const numA = parseFloat(valA);
+            const numB = parseFloat(valB);
+
+            console.log(numA)
+            console.log(numB)
+
+            if (!isNaN(Date.parse(valA)) && !isNaN(Date.parse(valB))) {
+                valA = new Date(valA);
+                valB = new Date(valB);
+            } else if (!isNaN(parseFloat(valA)) && !isNaN(parseFloat(valB))) {
+                valA = parseFloat(valA);
+                valB = parseFloat(valB);
+            }
+
+            if (valA < valB) return isAsc ? -1 : 1;
+            if (valA > valB) return isAsc ? 1 : -1;
+            return 0;
+        });
+
+        rows.forEach(row => table.appendChild(row));
+
+        // 重設所有箭頭
+        document.querySelectorAll('[id^=arrow-]').forEach(el => el.innerHTML = '');
+        document.getElementById(`arrow-${colKey}`).innerHTML = isAsc ? '↑' : '↓';
+    }
+
+    
+</script>
+
+</body>
+</html>

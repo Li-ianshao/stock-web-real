@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>股票分析平台</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script>
+            let activeTab = null;
+            const stockContentDict = {};
+            const price_data_saved = {};
+            const dividends_saved = {};
+            const news_saved = {};
+            const heatmap_goal_detail = {};
+            const heatmap_div_detail = {};
+            
+            
+
+            function addTab() {
+                const input = document.getElementById('symbol-input');
+                const symbol = input.value.trim().toUpperCase();
+                if (!symbol || document.getElementById(`tab-${symbol}`)) return;
+
+                // 建立 tab 元素
+                const tabHeader = document.getElementById('tab-header');
+                const newTab = document.createElement('div');
+                newTab.id = `tab-${symbol}`;
+                newTab.className = "relative tab";
+                
+
+                newTab.innerHTML = `
+                <button onclick="addOrSwitchTab('${symbol}')"
+                        class="px-6 py-3 text-sm font-medium rounded-t-xl rounded-b-none shadow-md border border-gray-300 border-b-0 z-10 tabBottom relative -mb-[1px]">
+                    ${symbol}
+                </button>
+                <button onclick="closeTab('${symbol}')"
+                        class="absolute top-0.3 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-5 text-center shadow hover:bg-red-600 z-50">
+                    ×
+                </button>
+                `;
+
+                tabHeader.appendChild(newTab);
+                input.value = '';
+                addOrSwitchTab(symbol)
+            }
+
+            function getClassByValue(val, good, bad) {
+                if (typeof val === "number" && !isNaN(val)){
+                    if (val >= good) return "text-green-600 font-bold";
+                    if (val <= bad) return "text-red-600 font-bold";
+                }
+                return "text-gray-800";
+            }
+            
+            function renderAllStockTags(data,update_time) {
+                Object.keys(data).forEach(category => {
+                    // 確保有一個區域，若沒有自動建立
+                    let tagArea = document.getElementById('stock-tag-area-' + category);
+                    tagArea.innerHTML = ""; // 先清空
+                    // if (!tagArea) {
+                    //     // 自動建立區塊並加標題
+                    //     tagArea = document.createElement('div');
+                    //     tagArea.id = 'stock-tag-area-' + category;
+                    //     tagArea.className = "mb-2";
+                    //     tagArea.innerHTML = `<div class="text-xs text-gray-500 mb-1">${category}</div>`;
+                    //     document.body.appendChild(tagArea); // 你可指定插入在你想要的容器下
+                    // } else {
+                    //     tagArea.innerHTML = `<div class="text-xs text-gray-500 mb-1">${category}</div>`;
+                    // }
+                    
+                    // 產生標籤
+                    data[category].forEach(symbolItem => {
+                        const tag = document.createElement('span');
+                        tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow mr-2 mb-2 inline-block';
+                        
+                        // 資料有詳細內容可特別處理
+                        if ( typeof symbolItem === "object" && symbolItem.Ticker) {
+                            tag.innerText = symbolItem.Ticker;
+                            tag.dataset.symbol = symbolItem.Ticker;
+
+                            if (symbolItem.股息貴族){
+                                if (symbolItem.股息貴族 === "True" || symbolItem.股息貴族 === true) {
+                                    tag.className += " bg-green-300 text-white border-2 border-blue-800";
+                                }
+                            }
+                            
+
+                           // ----- 手機長按 -----
+                            let pressTimer = null;
+                            tag.addEventListener('touchstart', function(e) {
+                                pressTimer = setTimeout(function() {
+                                    let msg = Object.keys(symbolItem).map(
+                                        key => `${key} : ${symbolItem[key]}`
+                                    ).join('\n');
+                                    alert(msg);
+                                }, 700); // 長按 700ms
+                            });
+                            tag.addEventListener('touchend', function(e) {
+                                clearTimeout(pressTimer);
+                            });
+                            tag.addEventListener('touchmove', function(e) {
+                                clearTimeout(pressTimer); // 滑動視為放棄長按
+                            });
+                            tag.onclick = function() {
+                                addOrSwitchTab(symbolItem.Ticker,category);
+                            };
+
+                            // ----- 電腦 hover 顯示瀏覽器原生 title -----
+                            let msg = Object.keys(symbolItem).map(
+                                key => `${key} : ${symbolItem[key]}`
+                            ).join('\n');
+                            tag.title = msg;
+
+                            // 若要同時保留點擊開標籤、長按才顯示訊息，請看下方B方案
+                        } else {
+                            // RSI 之類直接顯示
+                            tag.innerText = symbolItem;
+                            tag.dataset.symbol = symbolItem;
+                            tag.onclick = function() {
+                                addOrSwitchTab(symbolItem);
+                            };
+                        }
+
+                        tag.draggable = true;
+                        tag.ondragstart = function(e) {
+                            e.dataTransfer.setData("symbol", tag.dataset.symbol);
+                            e.dataTransfer.setData("category", category);
+                        };
+                        tagArea.appendChild(tag);
+                        document.getElementById("update-info").innerText = "資料更新時間："+update_time;
+                    });
+                });
+            }
+
+            // 假設 data.rsi_crossover 已經是 ["AIG", "COST", ...]
+            // function renderStockTags(tickers) {
+            //     const tagArea = document.getElementById('stock-tag-area-RSI_Over_30');
+            //     tagArea.innerHTML = ""; // 先清空
+
+            //     tickers.forEach(symbol => {
+            //         const tag = document.createElement('span');
+            //         tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow';
+            //         tag.innerText = symbol;
+            //         tag.draggable = true;
+            //         tag.dataset.symbol = symbol;
+            //         // 拖曳開始
+            //         tag.ondragstart = function(e) {
+            //             e.dataTransfer.setData("symbol", symbol);
+            //         };
+            //         // 也可以支援點擊新增
+            //         tag.onclick = function() {
+            //             addOrSwitchTab(symbol);
+            //         };
+            //         tagArea.appendChild(tag);
+            //     });
+            // }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                const symbol = e.dataTransfer.getData("symbol");
+                const category = e.dataTransfer.getData("category");
+                if (symbol) {
+                    addOrSwitchTab(symbol,category);
+                }
+            }
+
+            function addOrSwitchTab(symbol, category = '') {
+                console.log(category)
+                
+                // 標籤樣式管理
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
+                let tab = document.getElementById(`tab-${symbol}`);
+                if (!tab) {
+                    // 新增 tab
+                    tabHeader = document.getElementById('tab-header');
+                    tab = document.createElement('div');
+                    tab.id = `tab-${symbol}`;
+                    tab.className = "relative tab";
+                    
+
+                    tab.innerHTML = `
+                    <button onclick="addOrSwitchTab('${symbol}')"
+                            class="px-6 py-3 text-sm font-medium rounded-t-xl rounded-b-none shadow-md border border-gray-300 border-b-0 z-10 tabBottom relative -mb-[1px]">
+                        ${symbol}
+                    </button>
+                    <button onclick="closeTab('${symbol}')"
+                            class="absolute top-0.3 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-5 text-center shadow hover:bg-red-600 z-50">
+                        ×
+                    </button>
+                    `;
+
+                    tabHeader.appendChild(tab);
+
+                    // tab = document.createElement('button');
+                    // tab.className = 'tab px-4 py-2 rounded-t bg-gray-100 font-medium';
+                    // tab.id = `tab-${symbol}`;
+                    // tab.innerText = symbol;
+                    // tab.onclick = () => addOrSwitchTab(symbol);
+                    // document.getElementById('tab-header').appendChild(tab);
+                }
+                tab.classList.add('active', 'bg-white', 'font-bold');
+
+                // 內容 div
+                const contentDiv = document.getElementById('tab-content');
+                activeTab = symbol;
+
+                if (stockContentDict[symbol]) {
+                    // 有快取就直接顯示
+                    contentDiv.innerHTML = stockContentDict[symbol];
+                    priceData = price_data_saved[symbol]
+                    dividends = dividends_saved[symbol]
+                    news_list = news_saved[symbol]
+                    // 呼叫畫圖
+                    drawMACDChart(priceData);
+
+                    drawRSIChart(priceData);
+
+                    drawVolumeChart(priceData);
+
+                    drawCandleChart(priceData,dividends);
+
+                    renderGoalTable(heatmap_goal_detail[symbol]);
+                    renderDividendTable(heatmap_div_detail[symbol]);
+
+                    renderNewsArea(news_list);
+
+                    // 先全部隱藏
+                    document.getElementById('goal-heatmap-area').style.display = 'none';
+                    document.getElementById('dividend-heatmap-area').style.display = 'none';
+
+                    // 根據 category 顯示
+                    if (category === 'dividends') {
+                        document.getElementById('dividend-heatmap-area').style.display = '';
+                    } else {
+                        document.getElementById('goal-heatmap-area').style.display = '';
+                    }
+                   
+                } else {
+                    // 還沒載入時先顯示 loading
+                    contentDiv.innerHTML = `<p class="text-gray-500">載入 ${symbol} 資料中...</p>`;
+                    fetch(`/core/api/stock/${symbol}/`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const priceData = data.price_data;
+                        const dividends = data.dividends;
+                        console.log(data.major_holders)
+                        const content = document.getElementById('tab-content');
+                        const imgHTML = `
+                        <h2 class="text-xl font-bold mb-2">${data.symbol} RSI 策略分析</h2>
+                        <!-- 📄 公司描述區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">📄 公司基本資料與描述</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div x-show="open" class="mt-4 text-gray-700">
+                                <div class="border rounded-lg shadow p-4 bg-white mb-6">
+                                <h2 class="text-lg font-bold text-indigo-700 mb-2">🏢 公司營運概覽</h2>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                    <div><span class="font-medium text-gray-600">公司名稱：</span> ${ data.company_name }</div>
+                                    <div><span class="font-medium text-gray-600">產業：</span> ${ data.sector }</div>
+                                    <div><span class="font-medium text-gray-600">細分產業：</span> ${ data.industry }</div>
+                                    <div><span class="font-medium text-gray-600">averageVolume：</span> ${ data.averageVolume.toLocaleString('en-US') }</div>
+                                    <div><span class="font-medium text-gray-600">官方網站：</span>
+                                    <a href="${data.website}" target="_blank" class="text-blue-600 underline">${ data.website }</a>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 📄 法人持股描述區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">法人持股描述區塊</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div id="holders-area" class="text-sm">
+                                <div class="mb-3">
+                                    <div>Institutional ownership: <b>${data.institution_overview.institution_percent ?? 'N/A'}%</b></div>
+                                    <div>Insider ownership: <b>${data.institution_overview.insider_percent ?? 'N/A'}%</b></div>
+                                </div>    
+                            </div>
+                            <div class="mb-3">
+                                <div class="font-medium mb-1">Major holders</div>
+                                <ul class="list-disc list-inside text-gray-700">
+                                    ${data.major_holders.map(m => `<li><span class="text-gray-500">${m.label}：</span>${m.value}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div class="font-medium mb-1">Top institutional holders</div>
+                                <div class="overflow-x-auto">
+                                <table class="min-w-full text-left border">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-2 border">Holder</th>
+                                            <th class="px-3 py-2 border">Shares</th>
+                                            <th class="px-3 py-2 border">% Out</th>
+                                            <th class="px-3 py-2 border">Value (USD)</th>
+                                            <th class="px-3 py-2 border">Date reported</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    ${data.institutional_holders.map(h => `
+                                        <tr>
+                                            <td class="px-3 py-2 border">${h.holder ?? ''}</td>
+                                            <td class="px-3 py-2 border">${h.shares?.toLocaleString?.('en-US') ?? ''}</td>
+                                            <td class="px-3 py-2 border">${(h.percent_out ?? '') + (h.percent_out != null ? '%' : '')}</td>
+                                            <td class="px-3 py-2 border">${h.value?.toLocaleString?.('en-US') ?? ''}</td>
+                                            <td class="px-3 py-2 border">${h.date_reported ?? ''}</td>
+                                        </tr>
+                                    `).join('')}
+                                    </tbody>
+                                </table>
+                                </div>
+                        </div>
+                        <!-- 消息面分析區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">📄 公司消息面分析與描述</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div id="news-area"></div>
+                        </div>
+                        <!-- 📄 基本面分析區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">📄 公司基本面分析與描述</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div x-show="open" class="mt-4 text-gray-700">
+                                <div class="border rounded-lg shadow p-4 bg-white mb-6">
+                                    <h2 class="text-lg font-bold text-indigo-700 mb-2">獲利/成長能力</h2>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">毛利率(gross_margins)：</span>
+                                            <span class="${getClassByValue( data.gross_margins,0.4,0.2)}"> ${ data.gross_margins }</span>
+                                            <div class="text-gray-400 mt-1">每賣出 1 元後，能留下多少毛利。毛利高代表公司有定價能力、競爭力強。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>&gt;0.40（40%）超強（如科技/醫藥）</li>
+                                                <li>0.2～0.4 一般（製造/零售）</li>
+                                                <li>&lt;0.2 低毛利、競爭激烈</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">營業利益率(operating_margins)：</span> 
+                                            <span class="${getClassByValue( data.operating_margins,0.15,0.05)}">${ data.operating_margins }</span>
+                                            <div class="text-gray-400 mt-1">公司經營效率與獲利能力指標，越高越代表營運效率好。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>&gt;0.15（15%）優秀</li>
+                                                <li>0.05～0.15 正常</li>
+                                                <li>&lt;0.05 不佳</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">淨利率(profit_margins)：</span> 
+                                            <span class="${getClassByValue( data.profit_margins,0.10,0.05)}">${ data.profit_margins }</span>
+                                            <div class="text-gray-400 mt-1">公司最終能保留多少純利。高淨利率企業抗風險能力較佳。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>&gt;0.10（10%）佳</li>
+                                                <li>0.05～0.10 普通</li>
+                                                <li>&lt;0.05 警訊</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">過去12月每股盈餘(trailing_eps)：</span> 
+                                            <span class="${getClassByValue( data.trailing_eps,0,0)}">${ data.trailing_eps }</span>
+                                            <div class="text-gray-400 mt-1">公司過去1年每股實際賺的錢</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>越高越好、正數為佳</li>
+                                                <li>EPS 長期穩定成長的公司為優質股</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">預期每股盈餘(forward_eps)：</span> 
+                                            <span class="${getClassByValue( data.forward_eps,data.trailing_eps,data.trailing_eps)}">${ data.forward_eps }</span>
+                                            <div class="text-gray-400 mt-1">分析師對未來12個月EPS的預期</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>越高越好、正數為佳</li>
+                                                <li>若 forward_eps > trailing_eps，代表預期公司將賺更多錢（正面）</li>
+                                                <li>若 forward_eps < trailing_eps，預期獲利下滑，需審慎評估</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-3  mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">營收成長率(revenue_growth)：</span> 
+                                            <span class="${getClassByValue( data.revenue_growth,0.1,0)}">${ data.revenue_growth }</span>
+                                            <div class="text-gray-400 mt-1">公司營收增長速度</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>>0.05（5%） 代表健康成長</li>
+                                                <li>>0.10（10%） 很強勁</li>
+                                                <li><0 衰退警訊，長期負值要小心</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">資產報酬率(return_on_assets)：</span> 
+                                            <span class="${getClassByValue( data.return_on_assets,0.05,0.02)}">${ data.return_on_assets }</span>
+                                            <div class="text-gray-400 mt-1">公司資產獲利效率。越高代表公司善用資產獲利。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>&gt;0.05（5%）優於平均</li>
+                                                <li>0.02～0.05 一般</li>
+                                                <li>&lt;0.02 差</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">股東權益報酬率(return_on_equity)：</span> 
+                                            <span class="${getClassByValue( data.return_on_equity,0.12,0.08)}">${ data.return_on_equity }</span>
+                                            <div class="text-gray-400 mt-1">股東投資報酬率。ROE 高的公司會賺錢、具備護城河。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>&gt;0.12（12%）優秀</li>
+                                                <li>0.08～0.12 不錯</li>
+                                                <li>&lt;0.08 偏低</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="border rounded-lg shadow p-4 bg-white mb-6">
+                                    <h2 class="text-lg font-bold text-indigo-700 mb-2">估值指標</h2>
+                                    <div class="grid grid-cols-1 md:grid-cols-1 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">市值(market_cap)：</span> 
+                                            ${ data.market_cap.toLocaleString('en-US') }
+                                            <div class="text-gray-400 mt-1">市值大（百億美元以上）通常流動性好、波動小；小型股則成長潛力高但風險大</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>藍籌/大型：> 100億美元</li>
+                                                <li>中型：10~100億美元</li>
+                                                <li>小型：< 10億美元</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2  mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">股價淨值比(price_to_book)：</span> 
+                                            <span class="${getClassByValue( data.price_to_book*-1,-1.5,-3)}">${ data.price_to_book }</span>
+                                            <div class="text-gray-400 mt-1">股價與每股帳面價值的比值，反映公司價值被市場高估還是低估</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>P/B < 1.5 通常低估，有安全邊際</li>
+                                                <li>P/B > 3 代表市場給予高成長預期，或有泡沫疑慮</li>
+                                                <li>不同行業標準不同（科技股高、金融/公用事業低）</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">股價營收比(price_to_sales)：</span>
+                                            <span class="${getClassByValue( data.price_to_sales*-1,-3,-6)}">${ data.price_to_sales }</span>
+                                            <div class="text-gray-400 mt-1">每單位營收的市值多少倍，反映成長預期</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>P/S < 2 通常被認為低估</li>
+                                                <li>P/S > 6 代表市場對未來成長高度樂觀（尤其科技/雲端/生技）</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2  mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">歷史本益比(trailingPE)：</span> 
+                                            <span class="${getClassByValue( data.trailingPE*-1,-10,-30)}">${ data.trailingPE }</span>
+                                            <div class="text-gray-400 mt-1">目前股價是過去12個月盈餘的幾倍</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>10~20 通常為合理範圍</li>
+                                                <li><10 可能被低估（或未來成長不佳）</li>
+                                                <li>>30 被高估（或極高成長股/炒作）</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">預期本益比(forwardPE)：</span> 
+                                            <span class="${getClassByValue( data.trailingPE,data.forwardPE,data.forwardPE)}">${ data.forwardPE }
+                                            <div class="text-gray-400 mt-1">根據未來 EPS 計算的 PE</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>forwardPE < trailingPE → 預期獲利增加、PE下降，市場看好（正面）</li>
+                                                <li><10 可能被低估（或未來成長不佳）</li>
+                                                <li>forwardPE > trailingPE → 預期獲利下滑，可能市場保守（負面）</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="border rounded-lg shadow p-4 bg-white mb-6">
+                                    <h2 class="text-lg font-bold text-indigo-700 mb-2">財務風險/安全</h2>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">自由現金流(free_cashflow)：</span> 
+                                            <span class="${getClassByValue( data.free_cashflow,0,0)}">${ data.free_cashflow ? data.free_cashflow.toLocaleString('en-US') : "No data" }</span>
+                                            <div class="text-gray-400 mt-1">公司真正可自由運用的現金。正數代表可配息/還債/投資，負數需警覺。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>長期為正才健康</li>
+                                                <li>負數可能短期大投資或經營不善</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">營運現金流(operating_cashflow)：</span> 
+                                            <span class="${getClassByValue( data.free_cashflow,0,0)}">${ data.operating_cashflow ? data.operating_cashflow.toLocaleString('en-US') : "No data" }</span>
+                                            <div class="text-gray-400 mt-1">公司營運帶來的現金流。長期正數代表業務穩健。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>長期為正，公司營運良好</li>
+                                                <li>若為負，公司需警覺現金周轉困難</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                                <div class="border rounded-lg shadow p-4 bg-white mb-6">
+                                    <h2 class="text-lg font-bold text-indigo-700 mb-2">股利/收益穩定</h2>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">除息日(exDividend_Date)：</span> ${ data.exDividend_Date }
+                                            <br/>
+                                            <span class="font-medium text-gray-600">配息日(dividend_date)：</span> ${ data.dividend_date }
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">每年每股股息(dividend_rate)：</span> ${ data.dividend_rate }
+                                            <div class="text-gray-400 mt-1">公司一年配發的現金股息，越高越受存股族青睞。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>需配合殖利率(dividend_yield)判斷是否划算</li>
+                                                <li>高股息不等於好公司，還要看現金流穩不穩</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">殖利率(dividend_yield)：</span> ${ data.dividend_yield }
+                                            <div class="text-gray-400 mt-1">每年現金股息與股價的比率，反映配息吸引力。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>&gt;0.04（4%）高殖利率，適合存股</li>
+                                                <li>0.02～0.04 正常</li>
+                                                <li>&lt;0.02 偏低（成長型公司可能本就不發股息）</li>
+                                                <li>&gt;0.08 要小心，可能因股價大跌</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">股息發放率(payout_ratio)：</span> ${ data.payout_ratio }
+                                            <div class="text-gray-400 mt-1">公司每賺一元，發出多少作股息。太高可能不健康。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>0.3～0.7 健康</li>
+                                                <li>&gt;1 超額配息，可能危險</li>
+                                                <li>&lt;0.2 保守（多留現金）</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--<img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />-->
+                        
+                        <div id="goal-heatmap-area" style="display:none;" class="mb-8 bg-white rounded-xl shadow p-4">
+                            <img src="data:image/png;base64,${data.heatmap_goal}" class="max-w-full border rounded shadow" />
+                            <h2 class="text-xl font-bold mb-2">目標達標率明細</h2>
+                            <div id="goal-table-area"></div>
+                        </div>
+                        <div  id="dividend-heatmap-area" style="display:none;" class="bg-white rounded-xl shadow p-4">
+                            <img src="data:image/png;base64,${data.heatmap_div}" class="max-w-full border rounded shadow" />
+                            <h2 class="text-xl font-bold mb-2">配息日後報酬明細</h2>
+                            <div id="dividend-table-area"></div>
+                        </div>
+                        
+
+                        <!-- 📈 技術圖表區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">📈 技術圖表分析</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div x-show="open" class="mt-4 space-y-4">
+
+                                <!-- 📈 股價變動與布林通道 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">🕯️ 股價變動圖與布林通道（BBands）</h3>
+                                        <p class="text-sm text-gray-500">顯示每日股價開盤、收盤、高低點與布林通道，幫助判斷股價波動範圍與壓力支撐位置。</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-candle" class="relative w-full h-[700px] bg-white">
+                                            <div id="candle-tooltip" style="min-width: 120px; max-width: 110px; max-height: 95px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 📈 交易量 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">📊 成交量（Volume）</h3>
+                                        <p class="text-sm text-gray-500">呈現每日交易量，用來觀察市場活躍度與價量背離狀況。大量交易通常代表多空拉鋸或趨勢確認。</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-volume" class="relative w-full h-[700px] bg-white mt-8">
+                                            <div id="volume-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 📈 RSI 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">📈 RSI 相對強弱指標</h3>
+                                        <p class="text-sm text-gray-500">判斷股票是否過熱（超買）或過冷（超賣）</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-rsi" class="relative w-full h-[700px] bg-white">
+                                            <div id="rsi-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 📈 MACD 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">📉 MACD 指標</h3>
+                                        <p class="text-sm text-gray-500">結合快速線與慢速線觀察多空轉折。柱狀圖顯示多空動能變化，線條交叉通常預示可能的趨勢反轉。</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-macd" class="relative w-full h-[700px] bg-white mt-8">
+                                            <div id="macd-tooltip" style="min-width: 120px; max-width: 110px; max-height: 75px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        `;
+                        content.innerHTML = imgHTML;
+                        
+                        // 儲存進快取
+                        price_data_saved[symbol] = priceData
+                        dividends_saved[symbol] = dividends
+                        heatmap_goal_detail[symbol] = data.heatmap_goal_detail
+                        heatmap_div_detail[symbol] = data.heatmap_div_detail
+                        news_saved[symbol] = data.news_list
+                        stockContentDict[symbol] = content.innerHTML;
+                        
+
+                        // 只顯示當前 tab（避免 race condition）
+                        if (activeTab === symbol) {
+                            contentDiv.innerHTML = content.innerHTML;
+                        }
+
+                        // 呼叫畫圖
+                        drawMACDChart(priceData);
+
+                        drawRSIChart(priceData);
+
+                        drawVolumeChart(priceData);
+
+                        drawCandleChart(priceData,dividends);
+                        
+                        renderGoalTable(data.heatmap_goal_detail);
+                        renderDividendTable(data.heatmap_div_detail);
+
+                        renderNewsArea(data.news_list);
+
+                        // 先全部隱藏
+                        document.getElementById('goal-heatmap-area').style.display = 'none';
+                        document.getElementById('dividend-heatmap-area').style.display = 'none';
+
+                        // 根據 category 顯示
+                        if (category === 'dividends') {
+                            document.getElementById('dividend-heatmap-area').style.display = '';
+                        } else {
+                            document.getElementById('goal-heatmap-area').style.display = '';
+                        }
+
+                        
+                    })
+                    .catch(err => {
+                        contentDiv.innerHTML = `<p class="text-red-500">取得 ${symbol} 資料時發生錯誤</p>`;
+                    });
+                }
+                
+            }
+
+
+            function fetchData () {
+                fetch('/core/api/stockdata/')
+                .then(res => res.json())
+                .then(data => {
+                    date = new Date(data.update_time * 1000)
+                    renderAllStockTags(data=data.data,update_time=date)
+                });
+            }
+
+            function sendData () {
+                fetch('/core/api/stockdata/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        "RSI": [
+                            "CTSH",
+                            "CL",
+                            "IBM",
+                            "PANW",
+                            "VRTX",
+                            "GWW"
+                        ],
+                        "dividends": [
+                            {
+                                "Ticker": "TGT",
+                                "Div_Date": "2025-08-13",
+                                "Yields": 4.85,
+                                "股息貴族": "False"
+                            },
+                            {
+                                "Ticker": "MRK",
+                                "Div_Date": "2025-09-15",
+                                "Yields": 4.01,
+                                "股息貴族": "False"
+                            },
+                            {
+                                "Ticker": "CMCSA",
+                                "Div_Date": "2025-10-01",
+                                "Yields": 4.06,
+                                "股息貴族": "False"
+                            },
+                            {
+                                "Ticker": "TEST",
+                                "Div_Date": "2025-10-01",
+                                "Yields": 4.06,
+                                "股息貴族": "True"
+                            }
+                        ],
+                        "drops": [
+                            {
+                                "Ticker": "ALGN",
+                                "最大跌幅": "33.93%",
+                            },
+                            {
+                               "Ticker": "BAX",
+                                "最大跌幅": "29.2%",
+                            },
+                            {
+                                "Ticker": "CNC",
+                                "最大跌幅": "59.86%",
+                            }
+                        ]
+                    })
+                })
+                .then(res => res.json())
+                .then(data => console.log(data));
+            }
+
+            setInterval(fetchData, 100000);
+
+
+            // 安全轉義（避免把原文注入成 HTML）
+            function escapeHTML(str = "") {
+            return String(str).replace(/[&<>"']/g, s => (
+                { "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[s]
+            ));
+            }
+
+            // 友善的日期格式（吃 ISO 或秒數）
+            function formatPubDate(pubDate) {
+            try {
+                let d;
+                if (typeof pubDate === "number") d = new Date(pubDate * 1000);
+                else d = new Date(pubDate);
+                if (isNaN(d.getTime())) return "";
+                return d.toLocaleString(); // 你要固定格式可改成 toLocaleDateString(...)
+            } catch {
+                return "";
+            }
+            }
+
+            // 主要渲染函式
+            function renderNewsArea(newsList, mountId = "news-area") {
+            const mount = document.getElementById(mountId);
+            if (!mount) return;
+
+            if (!Array.isArray(newsList) || newsList.length === 0) {
+                mount.innerHTML = `
+                <div class="text-gray-500 text-sm italic px-2 py-3 border rounded">
+                    No recent news available.
+                </div>`;
+                return;
+            }
+
+            const html = newsList.map(n => {
+                const title     = escapeHTML(n.title_zh);
+                const summary   = escapeHTML(n.summary_zh || "");
+                const link      = n.link || "#";
+                const publisher = escapeHTML(
+                (n.provider && n.provider.displayName) ? n.provider.displayName : (n.publisher || "")
+                );
+                const dateText  = formatPubDate(n.pubDate);
+
+                return `
+                <a href="${link}" target="_blank" rel="noopener"
+                    class="block border rounded-lg p-4 bg-white hover:shadow transition">
+                    <div class="text-base font-semibold text-gray-900 mb-1 line-clamp-2">${title}</div>
+                    <div class="text-xs text-gray-500 mb-2">
+                    ${publisher ? `${publisher}` : "News"}${dateText ? ` · ${dateText}` : ""}
+                    </div>
+                    ${summary ? `<div class="text-sm text-gray-700 line-clamp-2">${summary}</div>` : ""}
+                </a>
+                `;
+            }).join("");
+
+            mount.innerHTML = html;
+            }
+
+            
+
+            function drawCandleChart(data,dividends) {
+                // 假設 data 已經有 date (Date 物件)，抓取圖表區間
+                const candleDatesSet = new Set(data.map(d => d.Date)); // "2024-08-07" 這種格式
+                const filteredDividends = dividends.filter(d => candleDatesSet.has(d.date));
+                
+                const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+                const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+                const margin = { top: 20, right: 40, bottom: 30, left: 50};
+                    width = baseW - margin.left - margin.right;
+                    height = 600 - margin.top - margin.bottom;
+                const svg = d3.select("#chart-candle")
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "auto")
+                    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                    .attr("preserveAspectRatio", "none")
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`)
+                    
+                // 轉換日期格式
+                const parseDate = d3.timeParse("%Y-%m-%d");
+                data.forEach(d => {
+                    d.date = parseDate(d.Date);
+                    d.Open = +d.Open;
+                    d.High = +d.High;
+                    d.Low = +d.Low;
+                    d.Close = +d.Close;
+                });
+                // 設定比例尺
+                const x = d3.scaleBand()
+                    .domain(data.map(d => d.date))
+                    .range([0, width])
+                    .padding(0.3);
+                const y = d3.scaleLinear()
+                    .domain([
+                        d3.min(data, d => d.Low),
+                        d3.max(data, d => d.High)
+                    ])
+                    .nice()
+                    .range([height, 0]);
+                // X軸 & Y軸
+                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+                svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(
+                        d3.axisBottom(x)
+                        .tickValues(
+                            x.domain().filter((d, i, arr) => {
+                            const n = arr.length;
+                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                            })
+                        )
+                        .tickFormat(d3.timeFormat("%m/%d"))
+                    );
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+                // 蠟燭圖本體
+                svg.selectAll("candlestick")
+                    .data(data)
+                    .enter()
+                    .append("line")
+                    .attr("x1", d => x(d.date) + x.bandwidth() / 2)
+                    .attr("x2", d => x(d.date) + x.bandwidth() / 2)
+                    .attr("y1", d => y(d.High))
+                    .attr("y2", d => y(d.Low))
+                    .attr("stroke", "black");
+                svg.selectAll("rect")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("x", d => x(d.date))
+                    .attr("y", d => y(Math.max(d.Open, d.Close)))
+                    .attr("height", d => Math.abs(y(d.Open) - y(d.Close)))
+                    .attr("width", x.bandwidth())
+                    .attr("fill", d => d.Close > d.Open ? "#00b300" : "#e60000");
+                // 布林通道（上軌 & 下軌）
+                const lineUpper = d3.line()
+                    .defined(d => d.upper_band !== null && !isNaN(d.upper_band))
+                    .x(d => x(d.date) + x.bandwidth()/2)
+                    .y(d => y(d.upper_band));
+
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "steelblue")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", lineUpper);
+
+                const lineLower = d3.line()
+                    .defined(d => d.lower_band !== null && !isNaN(d.lower_band))
+                    .x(d => x(d.date) + x.bandwidth()/2)
+                    .y(d => y(d.lower_band));
+
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "orange")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", lineLower);
+
+                const bbCrossData = data.filter(d => d.BB_Lower_Cross)
+                // 1. 畫 BB_Lower_Cross 標記圓點
+                svg.selectAll(".bb-cross-point")
+                    .data(bbCrossData)
+                    .enter()
+                    .append("circle")
+                    .attr("class", "bb-cross-point")
+                    .attr("cx", d => x(d.date) + x.bandwidth() / 2)
+                    .attr("cy", d => y(d.Low)+16)   // 低點下方一點
+                    .attr("r", 7)
+                    .attr("fill", "magenta")
+                    .attr("opacity", 0.85);
+
+                // 2. 標註日期（直立）
+                svg.selectAll(".bb-cross-label")
+                    .data(bbCrossData)
+                    .enter()
+                    .append("text")
+                    .attr("class", "bb-cross-label")
+                    .attr("x", d => x(d.date) + x.bandwidth() / 2)
+                    .attr("y", d => y(d.Low)+54) // 比圓點再低一點
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", 10)
+                    .attr("fill", "magenta")
+                    .attr("transform", d => `rotate(-90,${x(d.date) + x.bandwidth() / 2},${y(d.Low)+54})`)
+                    .text(d => d3.timeFormat("%Y-%m-%d")(d.date));
+
+
+                svg.selectAll(".dividend-point")
+                    .data(filteredDividends)
+                    .enter()
+                    .append("circle")
+                    .attr("class", "dividend-point")
+                    .attr("cx", d => {
+                        // 找到該日期在K線data裡的對應資料
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return x(data[idx].date) + x.bandwidth()/2;
+                    })
+                    .attr("cy", d => {
+                        // 同理，取該天的Low或你想要的y位置
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return height - 16;
+                    })
+                    .attr("r", 7)
+                    .attr("fill", "green")
+                    .attr("opacity", 0.85);
+
+                    // 金額寫在圓點上方
+                    svg.selectAll(".dividend-label")
+                    .data(filteredDividends)
+                    .enter()
+                    .append("text")
+                    .attr("class", "dividend-label")
+                    .attr("x", d => {
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return x(data[idx].date) + x.bandwidth()/2;
+                    })
+                    .attr("y", d => {
+                        const idx = data.findIndex(item => item.Date === d.date);
+                        return height-32;
+                    })
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", 10)
+                    .attr("fill", "green")
+                    .text(d => d.dividend.toFixed(2));
+
+                // 十字線
+                const crosshairV = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                const crosshairH = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+                // 事件感知區
+                svg.append("rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("fill", "none")
+                    .attr("pointer-events", "all")
+                    .on("mousemove", handleMove)
+                    .on("mousedown", function(event) {
+                        console.log("mousedown", event);
+                        startSelection(event);
+                    })
+                    .on("mouseup", function(event) {
+                        console.log("mouseup", event);
+                        endSelection(event);
+                    })
+                    .on("mouseleave", cancelSelection)
+                    .on("touchstart", startSelection)
+                    .on("touchmove", updateSelection)
+                    .on("touchend", endSelection);
+
+
+                let selectionStart = null; // {date, x, y}
+                let selectionEnd = null;
+
+                function startSelection(event) {
+                    console.log("startSelection")
+                    const [mx, my] = getPointer(event, svg.node());
+                    const xDate = getNearestDate(mx);
+                    selectionStart = { x: mx, y: my, date: xDate };
+                    selectionEnd = null;
+                    //redrawSelection();
+                }
+
+                function updateSelection(event) {
+                    if (!selectionStart) return;
+                    const [mx, my] = getPointer(event, svg.node());
+                    const xDate = getNearestDate(mx);
+                    selectionEnd = { x: mx, y: my, date: xDate };
+                    //redrawSelection();
+                }
+
+                function endSelection(event) {
+                    const [mx, my] = getPointer(event, svg.node());
+                    const xDate = getNearestDate(mx);
+                    selectionEnd = { x: mx, y: my, date: xDate };
+
+
+                    if (!selectionStart || !selectionEnd) {
+                        cancelSelection();
+                        return;
+                    }
+                    
+                    // 處理左、右點順序
+                    let left = selectionStart, right = selectionEnd;
+                    if (selectionStart.x > selectionEnd.x) {
+                        left = selectionEnd;
+                        right = selectionStart;
+                    }
+                    console.log(selectionStart)
+                    console.log(selectionEnd)
+                    console.log(left)
+                    console.log(right)
+                    const { percent, price1, price2, dateStr1, dateStr2, startIdx, endIdx } = calcReturn(left.date, right.date);
+                    showReturnLabel(percent, price1, price2, selectionStart, selectionEnd, startIdx, endIdx, dateStr1, dateStr2);
+                    
+                }
+
+                function cancelSelection() {
+                    selectionStart = null;
+                    selectionEnd = null;
+                    //redrawSelection();
+                }
+
+                function getPointer(event, svgNode) {
+                    // 支援滑鼠、觸控
+                    if (event.type && event.type.startsWith('touch')) {
+                        // touchstart/touchmove 用 event.touches[0]，touchend 用 event.changedTouches[0]
+                        let touch;
+                        if (event.type === "touchend" && event.changedTouches && event.changedTouches.length) {
+                            touch = event.changedTouches[0];
+                        } else if (event.touches && event.touches.length) {
+                            touch = event.touches[0];
+                        }
+                        if (touch) {
+                            const rect = svgNode.getBoundingClientRect();
+                            return [
+                                touch.clientX - rect.left,
+                                touch.clientY - rect.top
+                            ];
+                        }
+                        // 找不到 touch 時 fallback
+                        return [0, 0];
+                    } else {
+                        // 滑鼠、pen
+                        return d3.pointer(event, svgNode);
+                    }
+                }
+
+                function redrawSelection() {
+                    svg.selectAll(".selection-line").remove();
+                    svg.selectAll(".selection-dot").remove();
+                    svg.selectAll(".selection-label").remove();
+
+                    if (selectionStart && selectionEnd) {
+                        svg.append("line")
+                            .attr("class", "selection-line")
+                            .attr("x1", selectionStart.x)
+                            .attr("y1", selectionStart.y)
+                            .attr("x2", selectionEnd.x)
+                            .attr("y2", selectionEnd.y)
+                            .attr("stroke", "#007aff")
+                            .attr("stroke-width", 2);
+
+                        [selectionStart, selectionEnd].forEach(sel => {
+                            svg.append("circle")
+                                .attr("class", "selection-dot")
+                                .attr("cx", sel.x)
+                                .attr("cy", sel.y)
+                                .attr("r", 7)
+                                .attr("fill", "#34d399");
+                        });
+                    }
+                }
+
+                function calcReturn(date1, date2) {
+                    const idx1 = data.findIndex(d => +d.date === +date1);
+                    const idx2 = data.findIndex(d => +d.date === +date2);
+
+                    if (idx1 < 0 || idx2 < 0) return {percent: NaN};
+
+                    // 保證 idx1 <= idx2
+                    let startIdx = idx1, endIdx = idx2;
+                    if (idx1 > idx2) {
+                        startIdx = idx2;
+                        endIdx = idx1;
+                    }
+
+                    const price1 = data[startIdx].Close;
+                    const price2 = data[endIdx].Close;
+                    const dateStr1 = d3.timeFormat("%Y-%m-%d")(data[startIdx].date);
+                    const dateStr2 = d3.timeFormat("%Y-%m-%d")(data[endIdx].date);
+                    const percent = ((price2 - price1) / price1 * 100).toFixed(2);
+
+                    return { percent, price1, price2, dateStr1, dateStr2, startIdx, endIdx };
+                }
+
+                function showReturnLabel(percent, price1, price2, sel1, sel2, idx1, idx2, dateStr1, dateStr2) {
+                    svg.selectAll(".return-info-label").remove();
+
+                    // 右上角座標
+                    const labelX = width - 20;
+                    let yBase = 40;
+
+                    svg.append("rect")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX - 100)
+                        .attr("y", yBase - 38)
+                        .attr("width", 150)
+                        .attr("height", 100)
+                        .attr("fill", "#fff")
+                        .attr("opacity", 0.82)
+                        .attr("rx", 10);
+
+                    // 漲幅 %
+                    svg.append("text")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX)
+                        .attr("y", yBase)
+                        .attr("text-anchor", "end")
+                        .attr("font-size", 20)
+                        .attr("font-weight", "bold")
+                        .attr("fill", percent >= 0 ? "green" : "red")
+                        .text(`漲跌幅：${percent}%`);
+
+                    // 起點日期與價
+                    svg.append("text")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX)
+                        .attr("y", yBase + 28)
+                        .attr("text-anchor", "end")
+                        .attr("font-size", 14)
+                        .attr("fill", "#333")
+                        .text(`起始：${dateStr1} (${price1?.toFixed(2)})`);
+
+                    // 終點日期與價
+                    svg.append("text")
+                        .attr("class", "return-info-label")
+                        .attr("x", labelX)
+                        .attr("y", yBase + 52)
+                        .attr("text-anchor", "end")
+                        .attr("font-size", 14)
+                        .attr("fill", "#333")
+                        .text(`結束：${dateStr2} (${price2?.toFixed(2)})`);
+                }
+
+                function getNearestDate(mx) {
+                    // mx = 滑鼠在SVG內的x座標
+                    const domain = x.domain();
+                    const idx = Math.round(mx / x.step());
+                    const clampedIdx = Math.max(0, Math.min(idx, domain.length - 1));
+                    return domain[clampedIdx];
+                }
+
+                function handleMove(event) {
+                    const [mx, my] = d3.pointer(event, svg.node());
+
+                    const bisectDate = d3.bisector(d => d.date).left;
+                    const xDate = x.invert ? x.invert(mx) : new Date(x.domain()[Math.floor(mx / x.step())]);
+                    const idx = bisectDate(data, xDate);
+                    const d = data[idx];
+                    
+
+                    if (!d || !d.date) return;
+
+                    const cx = x(d.date) + x.bandwidth() / 2;
+                    const cy = y(d.Close);
+
+                    // 顯示十字線
+                    crosshairV
+                        .attr("x1", cx)
+                        .attr("x2", cx)
+                        .attr("y1", 0)
+                        .attr("y2", height)
+                        .style("display", "block");
+
+                    crosshairH
+                        .attr("x1", 0)
+                        .attr("x2", width)
+                        .attr("y1", cy)
+                        .attr("y2", cy)
+                        .style("display", "block");
+
+                    // 顯示資訊框
+                    const box = document.getElementById("candle-tooltip");
+                    const boxWidth = 110;  // 你設定的 tooltip 寬度
+                    const offset = 10;
+
+                    const svgRect = svg.node().getBoundingClientRect();
+
+                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
+                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+                    
+                    box.innerHTML = `
+                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                        <div>Open: ${d.Open?.toFixed(2)}</div>
+                        <div>High: ${d.High?.toFixed(2)}</div>
+                        <div>Low: ${d.Low?.toFixed(2)}</div>
+                        <div>Close: ${d.Close?.toFixed(2)}</div>
+                    `;
+                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+                    box.style.left = `${leftPos+40}px`;
+                    box.style.top = `${my + offset-5}px`;
+                    box.style.position = "absolute";
+                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+                    box.classList.remove("hidden");
+                }
+            }
+
+            function drawVolumeChart(data) {
+                const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+                const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+                const margin = { top: 20, right: 40, bottom: 30, left: 50};
+                    width = baseW;
+                    height = 600 - margin.top - margin.bottom;
+                const svg = d3.select("#chart-volume")
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "auto")
+                    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                    .attr("preserveAspectRatio", "none")
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`)
+
+                const parseDate = d3.timeParse("%Y-%m-%d");
+                data.forEach(d => {
+                    d.date = parseDate(d.Date);
+                    d.Volume = +d.Volume;
+                });
+
+                const x = d3.scaleBand()
+                    .domain(data.map(d => d.date))
+                    .range([0, width])
+                    .padding(0.2);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(data, d => d.Volume)])
+                    .nice()
+                    .range([height, 0]);
+
+                // X軸 & Y軸
+                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+                svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(
+                        d3.axisBottom(x)
+                        .tickValues(
+                            x.domain().filter((d, i, arr) => {
+                            const n = arr.length;
+                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                            })
+                        )
+                        .tickFormat(d3.timeFormat("%m/%d"))
+                    );
+                svg.append("g")
+                    .call(d3.axisLeft(y).tickFormat(d3.format(".2s")));// 2 位數 + 縮寫（K/M/B）
+
+                svg.selectAll("rect")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("x", d => x(d.date))
+                    .attr("y", d => y(d.Volume))
+                    .attr("width", x.bandwidth())
+                    .attr("height", d => height - y(d.Volume))
+                    .attr("fill", "#4a90e2");
+
+                // 十字線共用邏輯（重複使用）
+                const crosshairV = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                const crosshairH = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                svg.append("rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("fill", "none")
+                    .attr("pointer-events", "all")
+                    .on("mousemove", handleMove)
+                    .on("touchmove", handleMove)
+                    .on("click", handleMove);
+
+                function handleMove(event) {
+                    const [mx, my] = d3.pointer(event, svg.node());
+                    const bisectDate = d3.bisector(d => d.date).left;
+                    const xDate = x.domain()[Math.floor(mx / x.step())];
+                    const idx = bisectDate(data, xDate);
+                    const d = data[idx];
+
+                    if (!d || !d.date) return;
+
+                    const cx = x(d.date) + x.bandwidth() / 2;
+                    const cy = y(d.Volume);
+
+                    crosshairV
+                        .attr("x1", cx)
+                        .attr("x2", cx)
+                        .attr("y1", 0)
+                        .attr("y2", height)
+                        .style("display", "block");
+
+                    crosshairH
+                        .attr("x1", 0)
+                        .attr("x2", width)
+                        .attr("y1", cy)
+                        .attr("y2", cy)
+                        .style("display", "block");
+
+                    const box = document.getElementById("volume-tooltip");
+                    const boxWidth = 110;  // 你設定的 tooltip 寬度
+                    const offset = 10;
+
+                    const svgRect = svg.node().getBoundingClientRect();
+
+                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
+                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+                    
+                    box.innerHTML = `
+                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                        <div>Volume: ${d.Volume.toLocaleString()}</div>
+                    `;
+                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+                    box.style.left = `${leftPos+40}px`;
+                    box.style.top = `${my + offset-5}px`;
+                    box.style.position = "absolute";
+                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+                    box.classList.remove("hidden");
+                }
+            }
+
+            function drawRSIChart(data) {
+                const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+                const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+                const margin = { top: 20, right: 40, bottom: 30, left: 50};
+                    width = baseW - margin.left - margin.right;
+                    height = 600 - margin.top - margin.bottom;
+                const svg = d3.select("#chart-rsi")
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "auto")
+                    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                    .attr("preserveAspectRatio", "none")
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`)
+
+                const parseDate = d3.timeParse("%Y-%m-%d");
+                data.forEach(d => {
+                    d.date = parseDate(d.Date);
+                    d.rsi = +d.rsi;
+                });
+
+                const x = d3.scaleBand()
+                    .domain(data.map(d => d.date))
+                    .range([0, width]);
+
+                const y = d3.scaleLinear()
+                    .domain([0, 100])
+                    .range([height, 0]);
+
+                // X軸 & Y軸
+                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+                svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(
+                        d3.axisBottom(x)
+                        .tickValues(
+                            x.domain().filter((d, i, arr) => {
+                            const n = arr.length;
+                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                            })
+                        )
+                        .tickFormat(d3.timeFormat("%m/%d"))
+                    );
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+
+                // RSI 折線
+                const rsiLine = d3.line()
+                    .defined(d => d.rsi !== null && !isNaN(d.rsi))
+                    .x(d => x(d.date) + x.bandwidth() / 2)
+                    .y(d => y(d.rsi));
+
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "purple")
+                    .attr("stroke-width", 2)
+                    .attr("d", rsiLine);
+
+                // 超買/超賣區
+                svg.append("line") // 超買線
+                    .attr("x1", 0)
+                    .attr("x2", width)
+                    .attr("y1", y(70))
+                    .attr("y2", y(70))
+                    .attr("stroke", "red")
+                    .attr("stroke-dasharray", "4 2");
+
+                svg.append("line") // 超賣線
+                    .attr("x1", 0)
+                    .attr("x2", width)
+                    .attr("y1", y(30))
+                    .attr("y2", y(30))
+                    .attr("stroke", "green")
+                    .attr("stroke-dasharray", "4 2");
+
+                svg.selectAll("rsi-cross")
+                    .data(data.filter(d => d.RSI_Cross30))
+                    .enter()
+                    .append("path")
+                    .attr("d", d => trianglePath(x(d.date) + x.bandwidth()/2, y(d.rsi) + 30, 14))
+                    .attr("fill", "red");
+
+                // 如果要offset在下方顯示標籤文字
+                svg.selectAll("rsi-label")
+                    .data(data.filter(d => d.RSI_Cross30))
+                    .enter()
+                    .append("text")
+                    .attr("x", d => x(d.date) + x.bandwidth()/2)
+                    .attr("y", d => y(d.rsi) + 70) // 24像素下方
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "red")
+                    .attr("font-size", "10px")
+                    .attr("transform", d => `rotate(-90, ${x(d.date) + x.bandwidth()/2}, ${y(d.rsi) + 70})`)
+                    .text(d => d3.timeFormat("%Y-%m-%d")(d.date));
+
+                // 十字線
+                const crosshairV = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                const crosshairH = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                // 互動感知區
+                svg.append("rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("fill", "none")
+                    .attr("pointer-events", "all")
+                    .on("mousemove", handleMove)
+                    .on("touchmove", handleMove)
+                    .on("click", handleMove);
+
+                function handleMove(event) {
+                    const [mx, my] = d3.pointer(event, svg.node());
+                    const bisectDate = d3.bisector(d => d.date).left;
+                    const xDate = x.domain()[Math.floor(mx / x.step())];
+                    const idx = bisectDate(data, xDate);
+                    const d = data[idx];
+
+                    if (!d || d.rsi == null) return;
+
+                    const cx = x(d.date) + x.bandwidth() / 2;
+                    const cy = y(d.rsi);
+
+                    crosshairV
+                        .attr("x1", cx)
+                        .attr("x2", cx)
+                        .attr("y1", 0)
+                        .attr("y2", height)
+                        .style("display", "block");
+
+                    crosshairH
+                        .attr("x1", 0)
+                        .attr("x2", width)
+                        .attr("y1", cy)
+                        .attr("y2", cy)
+                        .style("display", "block");
+
+                    const box = document.getElementById("rsi-tooltip");
+                    const boxWidth = 110;  // 你設定的 tooltip 寬度
+                    const offset = 10;
+
+                    const svgRect = svg.node().getBoundingClientRect();
+
+                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
+                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+                    box.innerHTML = `
+                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                        <div>RSI: ${d.rsi.toFixed(2)}</div>
+                    `;
+                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+                    box.style.left = `${leftPos+40}px`;
+                    box.style.top = `${my + offset-5}px`;
+                    box.style.position = "absolute";
+                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+                    box.classList.remove("hidden");
+                }
+            }
+
+            function drawMACDChart(data) {
+                const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+                const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+                const margin = { top: 20, right: 40, bottom: 30, left: 50};
+                    width = baseW - margin.left - margin.right;
+                    height = 600 - margin.top - margin.bottom;
+                const svg = d3.select("#chart-macd")
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "auto")
+                    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                    .attr("preserveAspectRatio", "none")
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`)
+
+                const parseDate = d3.timeParse("%Y-%m-%d");
+                data.forEach(d => {
+                    d.date = parseDate(d.Date);
+                    d.hist = +d.hist;
+                    d.macd = +d.macd;
+                    d.signal = +d.signal;
+                });
+
+                const x = d3.scaleBand()
+                    .domain(data.map(d => d.date))
+                    .range([0, width])
+                    .padding(0.1);
+
+                const y = d3.scaleLinear()
+                    .domain([
+                        d3.min(data, d => Math.min(d.hist, d.macd, d.signal, 0)),
+                        d3.max(data, d => Math.max(d.hist, d.macd, d.signal, 0))
+                    ])
+                    .nice()
+                    .range([height, 0]);
+
+                // X軸 & Y軸
+                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+                svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(
+                        d3.axisBottom(x)
+                        .tickValues(
+                            x.domain().filter((d, i, arr) => {
+                            const n = arr.length;
+                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                            })
+                        )
+                        .tickFormat(d3.timeFormat("%m/%d"))
+                    );
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+
+                // 0 軸線
+                svg.append("line")
+                    .attr("x1", 0)
+                    .attr("x2", width)
+                    .attr("y1", y(0))
+                    .attr("y2", y(0))
+                    .attr("stroke", "#aaa")
+                    .attr("stroke-dasharray", "3 2");
+
+                // 柱狀圖（hist）
+                svg.selectAll("rect")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("x", d => x(d.date))
+                    .attr("y", d => y(Math.max(0, d.hist)))
+                    .attr("width", x.bandwidth())
+                    .attr("height", d => Math.abs(y(d.hist) - y(0)))
+                    .attr("fill", (d, i) => {
+                        if (i === 0 || isNaN(data[i - 1].hist)) return "#ccc";
+                        const prev = data[i - 1].hist;
+                        // 基準線上方
+                        if (d.hist > 0) {
+                            if (d.hist > prev) return "#00b300";    // 上方上升：亮綠
+                            else return "#007a3d";                  // 上方下跌：暗綠
+                        }
+                        // 基準線下方
+                        else if (d.hist < 0) {
+                            if (d.hist > prev) return "#a61b1b";    // 下方上升：暗紅
+                            else return "#ff4d4d";                  // 下方下跌：亮紅
+                        }
+                        // =0
+                        else {
+                            return "#aaa";
+                        }
+                    });
+
+                // MACD 曲線
+                const macdLine = d3.line()
+                    .defined(d => d.macd !== null && !isNaN(d.macd))
+                    .x(d => x(d.date) + x.bandwidth() / 2)
+                    .y(d => y(d.macd));
+
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "purple")
+                    .attr("stroke-width", 2)
+                    .attr("d", macdLine);
+
+                // Signal 曲線
+                const signalLine = d3.line()
+                    .defined(d => d.signal !== null && !isNaN(d.signal))
+                    .x(d => x(d.date) + x.bandwidth() / 2)
+                    .y(d => y(d.signal));
+
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "orange")
+                    .attr("stroke-width", 2)
+                    .attr("d", signalLine);
+
+                // MACD Golden Cross
+                svg.selectAll("macd-cross")
+                    .data(data.filter(d => d.MACD_GC))
+                    .enter()
+                    .append("path")
+                    .attr("d", d => trianglePath(x(d.date) + x.bandwidth()/2, y(d.macd)+16, 14))
+                    .attr("fill", "purple");
+
+                svg.selectAll("macd-cross-label")
+                    .data(data.filter(d => d.MACD_GC))
+                    .enter()
+                    .append("text")
+                    .attr("x", d => x(d.date) + x.bandwidth()/2)
+                    .attr("y", d => y(d.macd) + 56)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "purple")
+                    .attr("font-size", 10)
+                    .attr("transform", d => `rotate(-90,${x(d.date) + x.bandwidth()/2},${y(d.macd) + 56})`)
+                    .text(d => d3.timeFormat("%Y-%m-%d")(d.date));
+
+                // 十字線
+                const crosshairV = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                const crosshairH = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                // 感知區域
+                svg.append("rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("fill", "none")
+                    .attr("pointer-events", "all")
+                    .on("mousemove", handleMove)
+                    .on("touchmove", handleMove)
+                    .on("click", handleMove);
+
+                function handleMove(event) {
+                    const [mx, my] = d3.pointer(event, svg.node());
+                    const bisectDate = d3.bisector(d => d.date).left;
+                    const xDate = x.domain()[Math.floor(mx / x.step())];
+                    const idx = bisectDate(data, xDate);
+                    const d = data[idx];
+                    
+                    if (!d || d.macd == null) return;
+
+                    const cx = x(d.date) + x.bandwidth() / 2;
+                    const cy = y(d.hist);
+
+                    crosshairV
+                        .attr("x1", cx)
+                        .attr("x2", cx)
+                        .attr("y1", 0)
+                        .attr("y2", height)
+                        .style("display", "block");
+
+                    crosshairH
+                        .attr("x1", 0)
+                        .attr("x2", width)
+                        .attr("y1", cy)
+                        .attr("y2", cy)
+                        .style("display", "block");
+
+                    const box = document.getElementById("macd-tooltip");
+                    const boxWidth = 110;  // 你設定的 tooltip 寬度
+                    const offset = 10;
+
+                    const svgRect = svg.node().getBoundingClientRect();
+                    
+
+                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
+                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+                    
+                    box.innerHTML = `
+                        <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
+                        <div>MACD: ${d.macd.toFixed(2)}</div>
+                        <div>Signal: ${d.signal.toFixed(2)}</div>
+                        <div>Hist: ${d.hist.toFixed(2)}</div>
+                    `;
+                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+                    box.style.left = `${leftPos+40}px`;
+                    box.style.top = `${my + offset-5}px`;
+                    box.style.position = "absolute";
+                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+                    box.classList.remove("hidden");
+                }
+            }
+
+            function trianglePath(cx, cy, size) {
+                // 正三角形頂點
+                const h = Math.sqrt(3) / 2 * size;
+                return `
+                M ${cx},${cy-h/2}
+                L ${cx - size/2},${cy + h/2}
+                L ${cx + size/2},${cy + h/2}
+                Z
+                `;
+            }
+
+            // 目標達標率表格
+            function renderGoalTable(heat_goal_detail) {
+                // heat_goal_detail: {天數: {目標報酬: 機率}, ...}
+                const area = document.getElementById('goal-table-area');
+                area.innerHTML = '';
+
+                // 取得所有天數與報酬目標
+                const days = Object.keys(heat_goal_detail).sort((a, b) => +a - +b);
+                const goals = new Set();
+                days.forEach(day => {
+                    Object.keys(heat_goal_detail[day] || {}).forEach(goal => goals.add(goal));
+                });
+                const goalsArr = Array.from(goals).sort((a, b) => +a - +b);
+
+                // 建表
+                let html = `<table class="min-w-full border text-sm"><thead><tr><th class="border p-1">目標%/天數</th>`;
+                days.forEach(day => html += `<th class="border p-1">${day}天</th>`);
+                html += '</tr></thead><tbody>';
+                goalsArr.forEach(goal => {
+                    html += `<tr><td class="border p-1">${goal}%</td>`;
+                    days.forEach(day => {
+                        const val = heat_goal_detail[day]?.[goal] ?? '';
+                        html += `<td class="border p-1 text-right">${val === '' ? '-' : (val.toFixed(1) + '%')}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                area.innerHTML = html;
+            }
+
+            // 配息後報酬表格
+            function renderDividendTable(heat_dividend_detail) {
+                // heat_dividend_detail: [ {date, pre_close, max_return_10d, ...}, ... ]
+                const area = document.getElementById('dividend-table-area');
+                area.innerHTML = '';
+
+                if (!heat_dividend_detail || heat_dividend_detail.length === 0) {
+                    area.innerHTML = '<p class="text-gray-500">查無配息日資料。</p>';
+                    return;
+                }
+
+                // 取得所有 max_return_Nd 欄位
+                const example = heat_dividend_detail[0] || {};
+                const returnKeys = Object.keys(example).filter(k => k.startsWith('max_return_'));
+                returnKeys.sort((a, b) => {
+                    // max_return_10d -> 10，max_return_20d -> 20
+                    return parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]);
+                });
+
+                // 建表
+                let html = `<table class="min-w-full border text-sm"><thead><tr>
+                    <th class="border p-1">配息日</th>
+                    <th class="border p-1">配息前收盤</th>`;
+                returnKeys.forEach(k => {
+                    html += `<th class="border p-1">${k.replace('max_return_', '').replace('d', '')}天最大漲幅%</th>`;
+                });
+                html += '</tr></thead><tbody>';
+
+                heat_dividend_detail.forEach(row => {
+                    html += `<tr>
+                        <td class="border p-1">${row.date}</td>
+                        <td class="border p-1 text-right">${row.pre_close?.toFixed(2) ?? '-'}</td>`;
+                    returnKeys.forEach(k => {
+                        const val = row[k];
+                        html += `<td class="border p-1 text-right">${val === undefined ? '-' : (val.toFixed(2) + '%')}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                area.innerHTML = html;
+            }
+
+            window.addEventListener('DOMContentLoaded', () => {
+                fetchData();
+            });
+
+            function showStockTagArea(type) {
+                // 隱藏全部 stock-tag 區
+                document.querySelectorAll('.stock-tag-area').forEach(div => div.style.display = 'none');
+                // 顯示指定的
+                document.getElementById(`stock-tag-area-${type}`).style.display = 'flex';
+
+                // 先全部頁籤 tab 取消 active 樣式
+                document.querySelectorAll('.stock-tag-tab').forEach(btn => {
+                    btn.classList.remove('bg-white', 'text-gray-700', 'border-b-2', 'border-blue-500', 'font-semibold');
+                    btn.classList.add('bg-gray-200', 'text-gray-600');
+                });
+
+                // 當前 tab 高亮
+                const tabBtn = document.getElementById(`stock-tag-tab-${type}`);
+                tabBtn.classList.remove('bg-gray-200', 'text-gray-600');
+                tabBtn.classList.add('bg-white', 'text-gray-700', 'border-b-2', 'border-blue-500', 'font-semibold');
+            }
+
+            function showLoading() {
+                document.getElementById('global-loading').style.display = 'flex';
+            }
+            function hideLoading() {
+                document.getElementById('global-loading').style.display = 'none';
+            }
+
+            function closeTab(symbol) {
+                const tab = document.getElementById(`tab-${symbol}`);
+                if (tab) tab.remove();
+
+                if (activeTab === symbol) {
+                    activeTab = null;
+                    document.getElementById('tab-content').innerHTML =
+                    `<p class="text-gray-500">請新增並點選股票頁籤</p>`;
+                }
+            }
+            sendData()
+        </script>
+        <style >
+            .tab {
+            min-width: 75px;
+            margin-right: 2px;
+            background: #d1d1d1;
+            color: #616161;
+            font-size: 15px;
+            border: none;
+            border-radius: 16px 16px 0 0;
+            cursor: pointer;
+            position: relative;
+            top: 8px;
+            box-shadow: none;
+            transition: background 0.2s, color 0.2s, top 0.2s;
+            z-index: 1;
+            }
+
+            .tabBottom{
+                background: transparent;
+            }
+
+            .tab.active {
+            background: #fff;
+            color: #222;
+            font-weight: 500;
+            box-shadow: 0 4px 18px 0 rgba(60, 60, 60, 0.09);
+            top: 0;
+            z-index: 2;
+            border-bottom: 2.5px solid #fff;
+            }
+
+            .tab:not(.active):hover {
+            background: #e0e0e0;
+            color: #444;
+            }
+
+            .tab:last-child {
+            margin-right: 0;
+            }
+        </style>
+    </head>
+    <body class="p-6 font-sans bg-gray-100">
+
+        <h1 class="text-2xl font-bold mb-4">股票分析平台</h1>
+
+        <!-- 股票代碼輸入列 + stock tag area 分頁 -->
+        <div class="flex items-start mb-6 space-x-3">
+            <!-- 股票輸入 + 按鈕 -->
+            <div class="flex-shrink-0 flex items-center space-x-3">
+                <input id="symbol-input" type="text" placeholder="輸入股票代碼，如 AAPL"
+                    class="border border-gray-300 p-3 rounded-lg text-lg w-80 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button onclick="addTab()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white w-12 h-12 rounded-full text-2xl shadow-lg flex items-center justify-center">
+                    ＋
+                </button>
+                <!-- <button onclick="sendData()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white w-12 h-12 rounded-full text-2xl shadow-lg flex items-center justify-center">
+                    送
+                </button> -->
+            </div>
+            <!-- stock tag 切換區（占據剩餘空間） -->
+            <div class="flex-1 ml-2">
+                <!-- 小型頁籤 -->
+                <div id="stock-tag-tabs" class="flex space-x-2 mb-2">
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-white text-gray-700 border-b-2 border-blue-500 font-semibold focus:outline-none" onclick="showStockTagArea('RSI')" id="stock-tag-tab-RSI">RSI_Xover_30</button>
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('drops')" id="stock-tag-tab-drops">Drop</button>
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Dividends</button>
+                </div>
+                <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
+                <div id="stock-tag-area-RSI" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-50 rounded shadow" style="display:block"></div>
+                <div id="stock-tag-area-drops" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-green-50 rounded shadow" style="display:none"></div>
+                <div id="stock-tag-area-dividends" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-yellow-50 rounded shadow" style="display:none"></div>
+                <div id="update-info" class="text-gray-500 mb-2"></div>
+            </div>
+        </div>
+        <!-- Loading 讀取區（預設隱藏）-->
+        <div id="global-loading" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" style="display:none">
+            <div class="bg-white rounded-xl px-6 py-4 flex flex-col items-center shadow-xl">
+                <svg class="animate-spin h-8 w-8 text-blue-500 mb-2" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <div class="text-blue-800 text-lg font-semibold">資料載入中，請稍候...</div>
+            </div>
+        </div>
+        <div id="tab-drop-area"
+            ondragover="event.preventDefault()"
+            ondrop="handleDrop(event)">
+            <!-- 導覽列 -->
+            <div class="bg-gray-200 px-4 pt-4 pb-1 rounded-t-xl">
+                <div id="tab-header" class="flex space-x-2 overflow-x-auto"></div>
+            </div>
+
+            <!-- 內容區 -->
+            <div id="tab-content" class="bg-white p-6 rounded-b-xl shadow -mt-1">
+                <p class="text-gray-500">請新增並點選股票頁籤</p>
+            </div>
+        </div>
+
+    </body>
+</html>
