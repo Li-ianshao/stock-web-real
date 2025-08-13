@@ -495,7 +495,33 @@
                                             </ul>
                                         </div>
                                     </div>
-                                    
+                                </div>
+                                <div class="border rounded-lg shadow p-4 bg-white mb-6">
+                                    <h2 class="text-lg font-bold text-indigo-700 mb-2">市場情緒 / 籌碼面</h2>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">放空股數（Short Interest）：</span> 
+                                            <span class="${getClassByValue( data.sharesShort/data.sharesOutstanding*100*-1,-5,-15)}">${ data.sharesShort ? data.sharesShort.toLocaleString('en-US') : "No data" }</span>
+                                            <div class="text-gray-400 mt-1">市場上已被借出並賣空的股票數量。
+                                                放空股數反映投資人對該股票未來走勢的悲觀程度，數字越高，代表市場看空情緒越強。
+                                                需要搭配流通在外股數（Short Interest Ratio）計算**放空股數比例（Short Interest Ratio in %）**來判斷壓力。
+                                            </div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>偏高（> 15%）：許多投資人押注下跌，可能出現軋空或股價大幅波動，通常是壞跡象（除非你在做軋空交易）</li>
+                                                <li>偏低（< 5%）：投資人普遍對公司信心高，空頭壓力小，通常是好跡象</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">放空比率（Short Ratio）：</span> 
+                                            <span class="${getClassByValue( data.shortRatio*-1,-2,-5)}">${ data.shortRatio ? data.shortRatio.toLocaleString('en-US') : "No data" }</span>
+                                            <div class="text-gray-400 mt-1">計算方式：放空股數 ÷ 平均日成交量，衡量市場上已賣空部位的清償壓力。</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>偏高（>5）：看空情緒強，可能存在被軋空（Short Squeeze）風險</li>
+                                                <li>中等（2–5）：市場有一定看空力量，但尚屬可控範圍</li>
+                                                <li>偏低（<2）：看空情緒低，短期賣壓有限</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="border rounded-lg shadow p-4 bg-white mb-6">
                                     <h2 class="text-lg font-bold text-indigo-700 mb-2">股利/收益穩定</h2>
@@ -537,7 +563,6 @@
                             </div>
                         </div>
                         <!--<img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />-->
-                        <img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />
                         
                         <div id="goal-heatmap-area" style="display:none;" class="mb-8 bg-white rounded-xl shadow p-4">
                             <img src="data:image/png;base64,${data.heatmap_goal}" class="max-w-full border rounded shadow" />
@@ -686,7 +711,7 @@
                     renderAllStockTags(data=data.data,update_time=date)
                 });
             }
-
+            sendData()
             function sendData () {
                 fetch('/core/api/stockdata/', {
                     method: 'POST',
@@ -757,15 +782,15 @@
 
             // 友善的日期格式（吃 ISO 或秒數）
             function formatPubDate(pubDate) {
-            try {
-                let d;
-                if (typeof pubDate === "number") d = new Date(pubDate * 1000);
-                else d = new Date(pubDate);
-                if (isNaN(d.getTime())) return "";
-                return d.toLocaleString(); // 你要固定格式可改成 toLocaleDateString(...)
-            } catch {
-                return "";
-            }
+                try {
+                    let d;
+                    if (typeof pubDate === "number") d = new Date(pubDate * 1000);
+                    else d = new Date(pubDate);
+                    if (isNaN(d.getTime())) return "";
+                    return d.toLocaleString(); // 你要固定格式可改成 toLocaleDateString(...)
+                } catch {
+                    return "";
+                }
             }
 
             // 主要渲染函式

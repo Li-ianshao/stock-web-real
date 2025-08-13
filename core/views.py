@@ -164,7 +164,12 @@ def stock_api(request, symbol):
     period = '10y'
     stock_data = fetch_stock_data([symbol], period='1y')
 
-    print(stock_data[symbol]['news'])
+    short_interest = stock_data[symbol]['info'].get("sharesShort", None)   # 放空股數
+    short_ratio = stock_data[symbol]['info'].get("shortRatio", None)       # 放空比率
+
+    print(f"Short Interest: {short_interest}")
+    print(f"Short Ratio: {short_ratio}")
+
     news_list = []
     for news in stock_data.get(symbol, {}).get('news', []):
         content = news.get('content', {}) or {}
@@ -679,13 +684,14 @@ def stock_api(request, symbol):
         # 'techmap': img_base64_tech,
         "event_count": len(historical_data),
         'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
+        'sharesShort': stock_data[symbol]['info'].get('sharesShort') or stock_data['info'].get('sharesShort',"(Empty)"),
+        'shortRatio': stock_data[symbol]['info'].get('shortRatio') or stock_data['info'].get('shortRatio',"(Empty)"),
+        'sharesOutstanding': stock_data[symbol]['info'].get('sharesOutstanding') or stock_data['info'].get('sharesOutstanding',"(Empty)"),
         'news_list':news_list_translated,
         'techmap': img_base64_tech,
         "event_count": len(historical_data),
-        'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
         'techmap': img_base64_tech,
         "event_count": len(historical_data),
-        'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
         'sector': stock_data[symbol]['info'].get('sector',"(Empty)"),
         'industry': stock_data[symbol]['info'].get('industry',"(Empty)"),
         'market_cap': stock_data[symbol]['info'].get('marketCap',"(Empty)"),
