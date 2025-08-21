@@ -4,6 +4,8 @@
         <meta charset="UTF-8">
         <title>股票分析平台</title>
         <script src="https://cdn.tailwindcss.com"></script>
+        <!-- Alpine.js for toggle -->
+        <script src="https://unpkg.com/alpinejs" defer></script>
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <script>
             let activeTab = null;
@@ -268,57 +270,81 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- 📄 法人持股描述區塊 -->
+                        <!-- 📈 技術圖表區塊 -->
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
                             <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
-                                <h3 class="text-lg font-semibold text-gray-800">法人持股描述區塊</h3>
+                                <h3 class="text-lg font-semibold text-gray-800">📈 技術圖表分析</h3>
                                 <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
                             </div>
-                            <div id="holders-area" class="text-sm">
-                                <div class="mb-3">
-                                    <div>Institutional ownership: <b>${data.institution_overview.institution_percent ?? 'N/A'}%</b></div>
-                                    <div>Insider ownership: <b>${data.institution_overview.insider_percent ?? 'N/A'}%</b></div>
-                                </div>    
-                            </div>
-                            <div class="mb-3">
-                                <div class="font-medium mb-1">Major holders</div>
-                                <ul class="list-disc list-inside text-gray-700">
-                                    ${data.major_holders.map(m => `<li><span class="text-gray-500">${m.label}：</span>${m.value}</li>`).join('')}
-                                </ul>
-                            </div>
-                            <div class="font-medium mb-1">Top institutional holders</div>
-                                <div class="overflow-x-auto">
-                                <table class="min-w-full text-left border">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-3 py-2 border">Holder</th>
-                                            <th class="px-3 py-2 border">Shares</th>
-                                            <th class="px-3 py-2 border">% Out</th>
-                                            <th class="px-3 py-2 border">Value (USD)</th>
-                                            <th class="px-3 py-2 border">Date reported</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                    ${data.institutional_holders.map(h => `
-                                        <tr>
-                                            <td class="px-3 py-2 border">${h.holder ?? ''}</td>
-                                            <td class="px-3 py-2 border">${h.shares?.toLocaleString?.('en-US') ?? ''}</td>
-                                            <td class="px-3 py-2 border">${(h.percent_out ?? '') + (h.percent_out != null ? '%' : '')}</td>
-                                            <td class="px-3 py-2 border">${h.value?.toLocaleString?.('en-US') ?? ''}</td>
-                                            <td class="px-3 py-2 border">${h.date_reported ?? ''}</td>
-                                        </tr>
-                                    `).join('')}
-                                    </tbody>
-                                </table>
+                            <div x-show="open" class="mt-4 space-y-4">
+
+                                <!-- 📈 股價變動與布林通道 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">🕯️ 股價變動圖與布林通道（BBands）</h3>
+                                        <p class="text-sm text-gray-500">顯示每日股價開盤、收盤、高低點與布林通道，幫助判斷股價波動範圍與壓力支撐位置。</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-candle" class="relative w-full h-[700px] bg-white">
+                                            <div id="candle-tooltip" style="min-width: 120px; max-width: 110px; max-height: 95px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                                        </div>
+                                    </div>
                                 </div>
-                        </div>
-                        <!-- 消息面分析區塊 -->
-                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
-                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
-                                <h3 class="text-lg font-semibold text-gray-800">📄 公司消息面分析與描述</h3>
-                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                                <!-- 📈 RSI 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">📈 RSI 相對強弱指標</h3>
+                                        <p class="text-sm text-gray-500">判斷股票是否過熱（超買）或過冷（超賣）</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-rsi" class="relative w-full h-[700px] bg-white">
+                                            <div id="rsi-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 📈 MACD 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">📉 MACD 指標</h3>
+                                        <p class="text-sm text-gray-500">結合快速線與慢速線觀察多空轉折。柱狀圖顯示多空動能變化，線條交叉通常預示可能的趨勢反轉。</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-macd" class="relative w-full h-[700px] bg-white mt-8">
+                                            <div id="macd-tooltip" style="min-width: 120px; max-width: 110px; max-height: 75px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                                        </div>
+                                    </div>
+                                </div>o
+                                <!-- 📈 交易量 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">📊 成交量（Volume）</h3>
+                                        <p class="text-sm text-gray-500">呈現每日交易量，用來觀察市場活躍度與價量背離狀況。大量交易通常代表多空拉鋸或趨勢確認。</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-volume" class="relative w-full h-[700px] bg-white mt-8">
+                                            <div id="volume-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                
                             </div>
-                            <div id="news-area"></div>
                         </div>
                         <!-- 📄 基本面分析區塊 -->
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
@@ -562,6 +588,170 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- 📄 法人持股描述區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">法人持股描述區塊</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div id="holders-area" class="text-sm">
+                                <div class="mb-3">
+                                    <div>Institutional ownership: <b>${data.institution_overview.institution_percent ?? 'N/A'}%</b></div>
+                                    <div>Insider ownership: <b>${data.institution_overview.insider_percent ?? 'N/A'}%</b></div>
+                                </div>    
+                            </div>
+                            <div class="mb-3">
+                                <div class="font-medium mb-1">Major holders</div>
+                                <ul class="list-disc list-inside text-gray-700">
+                                    ${data.major_holders.map(m => `<li><span class="text-gray-500">${m.label}：</span>${m.value}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div class="font-medium mb-1">Top institutional holders</div>
+                                <div class="overflow-x-auto">
+                                <table class="min-w-full text-left border">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-2 border">Holder</th>
+                                            <th class="px-3 py-2 border">Shares</th>
+                                            <th class="px-3 py-2 border">% Out</th>
+                                            <th class="px-3 py-2 border">Value (USD)</th>
+                                            <th class="px-3 py-2 border">Date reported</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    ${data.institutional_holders.map(h => `
+                                        <tr>
+                                            <td class="px-3 py-2 border">${h.holder ?? ''}</td>
+                                            <td class="px-3 py-2 border">${h.shares?.toLocaleString?.('en-US') ?? ''}</td>
+                                            <td class="px-3 py-2 border">${(h.percent_out ?? '') + (h.percent_out != null ? '%' : '')}</td>
+                                            <td class="px-3 py-2 border">${h.value?.toLocaleString?.('en-US') ?? ''}</td>
+                                            <td class="px-3 py-2 border">${h.date_reported ?? ''}</td>
+                                        </tr>
+                                    `).join('')}
+                                    </tbody>
+                                </table>
+                                </div>
+                        </div>
+                        <!-- 📄 Form 4 區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">Form 4 區塊</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <table class="w-full text-sm border-collapse">
+                            <caption class="text-left mb-2">SEC Form 4 常見 Transaction Codes 對照表（非完整，實際以 SEC 說明文件與表單註解為準）</caption>
+                            <thead class="bg-gray-50">
+                                <tr>
+                                <th class="px-3 py-2 border">代碼</th>
+                                <th class="px-3 py-2 border">中文名稱</th>
+                                <th class="px-3 py-2 border">英文</th>
+                                <th class="px-3 py-2 border">說明</th>
+                                <th class="px-3 py-2 border">投資解讀</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">P</td>
+                                <td class="px-3 py-2 border">買進（公開市場/私下）</td>
+                                <td class="px-3 py-2 border">Purchase</td>
+                                <td class="px-3 py-2 border">內部人在市場或私下協議中直接買入公司股票。</td>
+                                <td class="px-3 py-2 border">通常被視為「看多訊號」，但仍需搭配金額、持續性與角色（如 CEO/CFO）。</td>
+                                </tr>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">S</td>
+                                <td class="px-3 py-2 border">賣出（公開市場/私下）</td>
+                                <td class="px-3 py-2 border">Sale</td>
+                                <td class="px-3 py-2 border">內部人在市場或私下協議中賣出公司股票。</td>
+                                <td class="px-3 py-2 border">未必是利空；可能為資產配置或個人現金需求，需看規模與是否連續賣出。</td>
+                                </tr>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">A</td>
+                                <td class="px-3 py-2 border">授予/獎勵</td>
+                                <td class="px-3 py-2 border">Grant, Award, or Other Acquisition</td>
+                                <td class="px-3 py-2 border">公司依薪酬計畫發放的 RSU/限制股/獎勵股等取得。</td>
+                                <td class="px-3 py-2 border">屬於薪酬性質，通常不代表主觀看多或看空。</td>
+                                </tr>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">M</td>
+                                <td class="px-3 py-2 border">期權行使/衍生品轉換</td>
+                                <td class="px-3 py-2 border">Option Exercise / Conversion of Derivative Security</td>
+                                <td class="px-3 py-2 border">將員工期權、權證等衍生性商品轉換為普通股。</td>
+                                <td class="px-3 py-2 border">多屬薪酬或既定合約安排；單看 M 不等於主動買進。</td>
+                                </tr>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">F</td>
+                                <td class="px-3 py-2 border">代扣稅/以股繳稅</td>
+                                <td class="px-3 py-2 border">Payment of Tax Liability by Withholding/Delivering Shares</td>
+                                <td class="px-3 py-2 border">RSU 歸屬或發放時，為繳稅而由公司扣回部分股份。</td>
+                                <td class="px-3 py-2 border">行政動作，非主觀賣股；不宜解讀為看空。</td>
+                                </tr>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">G</td>
+                                <td class="px-3 py-2 border">贈與</td>
+                                <td class="px-3 py-2 border">Gift</td>
+                                <td class="px-3 py-2 border">無對價移轉（如贈與家人或信託）。</td>
+                                <td class="px-3 py-2 border">通常與投資觀點無直接正負向含義。</td>
+                                </tr>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">C</td>
+                                <td class="px-3 py-2 border">轉換</td>
+                                <td class="px-3 py-2 border">Conversion</td>
+                                <td class="px-3 py-2 border">將可轉換證券（如可轉債、優先股）轉為普通股。</td>
+                                <td class="px-3 py-2 border">結構性動作；需結合是否後續賣出來判斷。</td>
+                                </tr>
+                                <tr>
+                                <td class="px-3 py-2 border font-medium">J</td>
+                                <td class="px-3 py-2 border">其他（見註解）</td>
+                                <td class="px-3 py-2 border">Other (explain in footnote)</td>
+                                <td class="px-3 py-2 border">不屬於上述類別的特殊交易，通常會在備註/註解中說明細節。</td>
+                                <td class="px-3 py-2 border">務必閱讀該 Form 4 的「Explanation of Responses」再做解讀。</td>
+                                </tr>
+                            </tbody>
+                            </table>
+                            <p class="text-xs mt-2">
+                            備註：本表僅列常見代碼；實務上還有其他代碼與細分情境。解讀時請同時參考該次申報的表單欄位（如 Table I/II）與最下方的說明文字（Explanation of Responses）。
+                            </p>
+
+                            <div class="font-medium mb-1">Top institutional holders</div>
+                                <div class="overflow-x-auto">
+                                <table class="min-w-full text-left border">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-2 border">symbol</th>
+                                            <th class="px-3 py-2 border">name</th>
+                                            <th class="px-3 py-2 border">transaction</th>
+                                            <th class="px-3 py-2 border">share</th>
+                                            <th class="px-3 py-2 border">change</th>
+                                            <th class="px-3 py-2 border">price</th>
+                                            <th class="px-3 py-2 border">transactionDate</th>
+                                            <th class="px-3 py-2 border">filingDate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    ${data.Form4_transactions.map(s => `
+                                        <tr>
+                                            <td class="px-3 py-2 border">${s.symbol ?? ''}</td>
+                                            <td class="px-3 py-2 border">${s.name ?? ''}</td>
+                                            <td class="px-3 py-2 border">${s.transactionCode ?? ''}</td>
+                                            <td class="px-3 py-2 border">${s.share ?? ''}</td>
+                                            <td class="px-3 py-2 border">${s.change ?? ''}</td>
+                                            <td class="px-3 py-2 border">${s.transactionPrice ?? ''}</td>
+                                            <td class="px-3 py-2 border">${s.transactionDate ?? ''}</td>
+                                            <td class="px-3 py-2 border">${s.filingDate ?? ''}</td>
+                                        </tr>
+                                    `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- 消息面分析區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">📄 公司消息面分析與描述</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div id="news-area"></div>
+                        </div>
                         <!--<img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />-->
                         
                         <div id="goal-heatmap-area" style="display:none;" class="mb-8 bg-white rounded-xl shadow p-4">
@@ -576,81 +766,7 @@
                         </div>
                         
 
-                        <!-- 📈 技術圖表區塊 -->
-                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
-                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
-                                <h3 class="text-lg font-semibold text-gray-800">📈 技術圖表分析</h3>
-                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
-                            </div>
-                            <div x-show="open" class="mt-4 space-y-4">
-
-                                <!-- 📈 股價變動與布林通道 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">🕯️ 股價變動圖與布林通道（BBands）</h3>
-                                        <p class="text-sm text-gray-500">顯示每日股價開盤、收盤、高低點與布林通道，幫助判斷股價波動範圍與壓力支撐位置。</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-candle" class="relative w-full h-[700px] bg-white">
-                                            <div id="candle-tooltip" style="min-width: 120px; max-width: 110px; max-height: 95px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- 📈 交易量 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">📊 成交量（Volume）</h3>
-                                        <p class="text-sm text-gray-500">呈現每日交易量，用來觀察市場活躍度與價量背離狀況。大量交易通常代表多空拉鋸或趨勢確認。</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-volume" class="relative w-full h-[700px] bg-white mt-8">
-                                            <div id="volume-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- 📈 RSI 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">📈 RSI 相對強弱指標</h3>
-                                        <p class="text-sm text-gray-500">判斷股票是否過熱（超買）或過冷（超賣）</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-rsi" class="relative w-full h-[700px] bg-white">
-                                            <div id="rsi-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- 📈 MACD 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">📉 MACD 指標</h3>
-                                        <p class="text-sm text-gray-500">結合快速線與慢速線觀察多空轉折。柱狀圖顯示多空動能變化，線條交叉通常預示可能的趨勢反轉。</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-macd" class="relative w-full h-[700px] bg-white mt-8">
-                                            <div id="macd-tooltip" style="min-width: 120px; max-width: 110px; max-height: 75px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        
                         
                         `;
                         content.innerHTML = imgHTML;
@@ -711,7 +827,7 @@
                     renderAllStockTags(data=data.data,update_time=date)
                 });
             }
-            
+            sendData()
             function sendData () {
                 fetch('/core/api/stockdata/', {
                     method: 'POST',
@@ -1897,6 +2013,18 @@
                     `<p class="text-gray-500">請新增並點選股票頁籤</p>`;
                 }
             }
+
+            document.addEventListener("DOMContentLoaded", function() {
+                // 綁定輸入框的 Enter 事件
+                document.getElementById("symbol-input").addEventListener("keydown", function (event) {
+                    console.log("OK")
+                    if (event.key === "Enter") {
+                    event.preventDefault(); // 避免觸發表單提交或頁面刷新
+                    document.getElementById("search-btn").click(); // 模擬點擊按鈕
+                    }
+                });
+            })
+            
             
 
         </script>
@@ -1951,7 +2079,7 @@
             <div class="flex-shrink-0 flex items-center space-x-3">
                 <input id="symbol-input" type="text" placeholder="輸入股票代碼，如 AAPL"
                     class="border border-gray-300 p-3 rounded-lg text-lg w-80 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <button onclick="addTab()"
+                <button onclick="addTab()" id="search-btn" 
                     class="bg-blue-600 hover:bg-blue-700 text-white w-12 h-12 rounded-full text-2xl shadow-lg flex items-center justify-center">
                     ＋
                 </button>
@@ -1990,7 +2118,7 @@
             ondrop="handleDrop(event)">
             <!-- 導覽列 -->
             <div class="bg-gray-200 px-4 pt-4 pb-1 rounded-t-xl">
-                <div id="tab-header" class="flex space-x-2 overflow-x-auto"></div>
+                <div id="tab-header" class="flex space-x-2 overflow-x-auto overflow-hidden"></div>
             </div>
 
             <!-- 內容區 -->

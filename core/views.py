@@ -29,6 +29,7 @@ from django.views.decorators.csrf import csrf_exempt
 ch_font = FontProperties(fname='C:/Windows/Fonts/msjh.ttc')  # Windows 微軟正黑體路徑
 import re
 import time
+import finnhub
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
@@ -117,6 +118,91 @@ load_dotenv()
 AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
 AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
 AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+
+BASE = "https://finnhub.io/api/v1"
+
+def _check_key():
+    api_key = FINNHUB_API_KEY
+    if not api_key:
+        raise RuntimeError("請先設定環境變數 FINNHUB_API_KEY")
+    return api_key
+
+def get_form4_data(symbol: str, from_date: str = None, to_date: str = None, with_sentiment: bool = False):
+    """
+    從 Finnhub 抓取內部人交易 (近似 Form 4)；可選擇一併抓 insider sentiment。
+
+    Args:
+        symbol (str): 如 "CTSH"
+        from_date (str|None): "YYYY-MM-DD"
+        to_date (str|None): "YYYY-MM-DD"
+        with_sentiment (bool): 是否同時抓 insider sentiment
+
+    Returns:
+        dict: {
+          "transactions": pd.DataFrame,   # 內部人交易
+          "sentiment": pd.DataFrame|None  # 月度情緒 (選擇性)
+        }
+    """
+    token = _check_key()
+
+    # --- insider transactions ---
+    tx_params = {"symbol": symbol, "token": token}
+    if from_date: tx_params["from"] = from_date
+    if to_date:   tx_params["to"] = to_date
+
+    tx_resp = requests.get(f"{BASE}/stock/insider-transactions", params=tx_params, timeout=30)
+    tx_resp.raise_for_status()
+    tx_json = tx_resp.json()
+    tx_df = pd.DataFrame(tx_json.get("data", []))
+
+    # 正規化常用欄位（可能少數欄位缺失，先補齊避免 KeyError）
+    for col in ["symbol","name","transaction","share","change","price","filingDate","transactionDate","offset"]:
+        if col not in tx_df.columns:
+            tx_df[col] = pd.NA
+
+    # --- insider sentiment (optional) ---
+    sent_df = None
+    if with_sentiment:
+        sent_params = {"symbol": symbol, "token": token}
+        sent_resp = requests.get(f"{BASE}/stock/insider-sentiment", params=sent_params, timeout=30)
+        sent_resp.raise_for_status()
+        sent_json = sent_resp.json()
+        sent_df = pd.DataFrame(sent_json.get("data", []))
+        # 一樣做欄位補齊
+        for col in ["symbol","year","month","change","mspr"]:
+            if col not in sent_df.columns:
+                sent_df[col] = pd.NA
+
+    return {"transactions": tx_df, "sentiment": sent_df}
+
+def get_form4_clean(symbol: str, only_buy_sell: bool = True, days=90):
+    """
+    回傳清洗後的交易資料（預設只保留 Buy/Sale 與常用欄位）。
+    """
+
+    today = datetime.today().date()
+    three_months_ago = today - timedelta(days=days)   # 大約 3 個月
+
+    data = get_form4_data(symbol, from_date=str(three_months_ago), to_date=str(today), with_sentiment=False)
+    df = data["transactions"].copy()
+
+    if df.empty:
+        return df
+
+    if only_buy_sell:
+        df = df[df["transaction"].isin(["Buy","Sale"])]
+
+    # 轉日期型別 & 排序
+    for c in ["filingDate","transactionDate"]:
+        df[c] = pd.to_datetime(df[c], errors="coerce")
+    df = df.sort_values(["filingDate","transactionDate"], ascending=[False, False])
+
+    # 精簡欄位順序
+    keep = ["symbol","name","transactionCode","share","change","transactionPrice","filingDate","transactionDate"]
+    df = df[[c for c in keep if c in df.columns]]
+    return df
+
 
 def azure_translate_texts(texts, to_lang="zh-Hant", timeout=15, chunk_size=50):
     
@@ -192,13 +278,12 @@ def stock_api(request, symbol):
     goals=[2, 4, 6, 8, 10]
 
     historical_data = fetch_historical_data(symbol,period=period,holding_days=holding_days, goals=goals)
+    print(historical_data)
 
     if historical_data is None or historical_data.empty:
-        return JsonResponse({"error": "無 RSI 資料或事件"}, status=400)
+        historical_data = pd.DataFrame(columns=['None', 'no data'])
 
-    if historical_data is None or historical_data.empty:
-        return JsonResponse({"error": "無 RSI 資料或事件"}, status=400)
-
+    
     
     # 
     # return_cols = [f"Return_{n}d(%)" for n in holding_days]
@@ -438,16 +523,14 @@ def stock_api(request, symbol):
 
 
 
-    goal_cols = [col for col in historical_data.columns if re.match(r'G_([\d\.]+)%_(\d+)d', col)]
-    goals = sorted({float(re.match(r'G_([\d\.]+)%', col).group(1)) for col in goal_cols})
-    days = sorted({int(re.match(r'G_[\d\.]+%_(\d+)d', col).group(1)) for col in goal_cols})
-
-    
 
     if historical_data.empty:
         img_base64_heat_goal = empty_heatmap_base64("No RSI crossing above 30 found in history")
         heat_goal_detail = ""
     else:
+        goal_cols = [col for col in historical_data.columns if re.match(r'G_([\d\.]+)%_(\d+)d', col)]
+        goals = sorted({float(re.match(r'G_([\d\.]+)%', col).group(1)) for col in goal_cols})
+        days = sorted({int(re.match(r'G_[\d\.]+%_(\d+)d', col).group(1)) for col in goal_cols})
         # 熱力圖
         heatmap_data = pd.DataFrame(index=goals, columns=days)
         for t in goals:
@@ -477,35 +560,6 @@ def stock_api(request, symbol):
         plt.close()
         
 
-    
-    
-    # 熱力圖
-    heatmap_data = pd.DataFrame(index=goals, columns=days)
-    for t in goals:
-        t_fmt = int(t) if t == int(t) else t
-        for d in days:
-            col = f'G_{t_fmt}%_{d}d'
-            if col in historical_data.columns:
-                heatmap_data.loc[t, d] = historical_data[col].mean() * 100
-    heatmap_data = heatmap_data.astype(float)
-
-    plt.figure(figsize=(10, 6))
-    fig, ax = plt.subplots(figsize=(10,6))
-    sns.heatmap(heatmap_data.iloc[::-1], annot=True, fmt=".1f", cmap="YlGnBu", ax=ax)
-    ax.set_title("Achievement Rate vs Holding Days")
-    ax.set_xlabel("Holding Days")
-    ax.set_ylabel("Target Return (%)")
-
-    # 目標達標機率列表
-    heat_goal_detail = heatmap_data.round(2).to_dict()  # {天數: {目標報酬: 機率%}}
-
-    # 儲存為 base64 圖片
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-    img_base64_heat_goal = base64.b64encode(buf.read()).decode('utf-8')
-    buf.close()
-    plt.close()
 
     # 假設 historical_data 為完整 df，有 DateTimeIndex，有 'Close' 欄
     # dividends 為配息日 datetime 的 list (或 Series)
@@ -671,11 +725,18 @@ def stock_api(request, symbol):
         dividend_date = "找不到配息日資料"
         exDividend_Date = "找不到配息日資料"
     
+    #取得Form 4 資料
+    Form4 = get_form4_clean(symbol, only_buy_sell=False)
+    print(Form4)
+    
+    Form4_transactions = Form4.to_dict(orient="records") if not Form4.empty else []
+    
 
     return JsonResponse({
         "symbol": symbol,
         'heatmap_goal': img_base64_heat_goal,
         'heatmap_goal_detail': heat_goal_detail,
+        'Form4_transactions': Form4_transactions,
         'heatmap_div': img_base64_heat_div,
         'heatmap_div_detail': dividend_list,
         "institution_overview": info,      # {institution_percent, insider_percent}

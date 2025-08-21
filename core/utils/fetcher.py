@@ -17,7 +17,10 @@ def fetch_historical_data(symbol, period='10y', holding_days=[5, 10, 15, 20], go
     df = yf.download(symbol, period=period, auto_adjust=True)
 
     if df.empty or len(df) < 30:
-        return None
+        empty_df = pd.DataFrame(columns=[
+            "title", "pubDate", "provider", "link", "summary"
+        ])
+        return empty_df
 
     close_series = df['Close'].squeeze()
     df['RSI'] = ta.momentum.RSIIndicator(close_series, window=14).rsi()
@@ -42,7 +45,10 @@ def fetch_historical_data(symbol, period='10y', holding_days=[5, 10, 15, 20], go
             signals.append(row)
 
     if not signals:
-        return "近五年無 RSI 上穿 30 的事件"
+        empty_df = pd.DataFrame(columns=[
+            "title", "pubDate", "provider", "link", "summary"
+        ])
+        return empty_df
 
     # 整理 DataFrame
     cols = ['BuyDate', 'BuyPrice']
