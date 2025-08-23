@@ -15,6 +15,10 @@
             const news_saved = {};
             const heatmap_goal_detail = {};
             const heatmap_div_detail = {};
+            const bgColors = [
+                "bg-red-200", "bg-blue-200", "bg-green-200", "bg-yellow-200",
+                "bg-purple-200", "bg-pink-200", "bg-indigo-200"
+            ];
             
             
 
@@ -58,17 +62,28 @@
                 Object.keys(data).forEach(category => {
                     // 確保有一個區域，若沒有自動建立
                     let tagArea = document.getElementById('stock-tag-area-' + category);
-                    tagArea.innerHTML = ""; // 先清空
-                    // if (!tagArea) {
-                    //     // 自動建立區塊並加標題
-                    //     tagArea = document.createElement('div');
-                    //     tagArea.id = 'stock-tag-area-' + category;
-                    //     tagArea.className = "mb-2";
-                    //     tagArea.innerHTML = `<div class="text-xs text-gray-500 mb-1">${category}</div>`;
-                    //     document.body.appendChild(tagArea); // 你可指定插入在你想要的容器下
-                    // } else {
-                    //     tagArea.innerHTML = `<div class="text-xs text-gray-500 mb-1">${category}</div>`;
-                    // }
+                    const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
+                    //<button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Dividends</button>
+                    if (!tagArea) {
+                        // 自動建立區塊並增加頁籤
+                        tagHeader = document.createElement("button");
+                        tagHeader.className = "stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none";
+                        tagHeader.onclick = function() {
+                            showStockTagArea(category);
+                        };
+                        tagHeader.id = "stock-tag-tab-" + category;
+                        tagHeader.innerText = category;
+
+                        tagArea = document.createElement('div');
+                        tagArea.id = 'stock-tag-area-' + category;
+                        tagArea.className = `stock-tag-area flex flex-wrap gap-2 p-2 ${randomBg} rounded shadow`;
+                        tagArea.style = "display:none"
+
+                        document.getElementById('stock-tag-tabs').appendChild(tagHeader);
+                        document.getElementById('tag-areas').appendChild(tagArea); // 你可指定插入在你想要的容器下
+                    } else {
+                        tagArea.innerHTML = "";// 先清空
+                    }
                     
                     // 產生標籤
                     data[category].forEach(symbolItem => {
@@ -827,60 +842,253 @@
                     renderAllStockTags(data=data.data,update_time=date)
                 });
             }
-            
+            //sendData()
             function sendData () {
                 fetch('/core/api/stockdata/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         "RSI": [
-                            "CTSH",
-                            "CL",
-                            "IBM",
-                            "PANW",
-                            "VRTX",
-                            "GWW"
+                            {
+                            "Ticker": "TTD",
+                            "Name": "The Trade Desk, Inc.",
+                            "Industry": "Advertising Agencies",
+                            "RSI": 31,
+                            "SNP100": "False",
+                            "股市貴族": "False"
+                            },
+                            {
+                            "Ticker": "AMAT",
+                            "Name": "Applied Materials, Inc.",
+                            "Industry": "Semiconductor Equipment & Materials",
+                            "RSI": 34,
+                            "SNP100": "True",
+                            "股市貴族": "False"
+                            }
+                        ],
+                        "RSI_Below30": [
+                            {
+                            "Ticker": "IT",
+                            "Name": "Gartner, Inc.",
+                            "Industry": "Information Technology Services",
+                            "RSI": 29,
+                            "SNP100": "False",
+                            "股市貴族": "False"
+                            },
+                            {
+                            "Ticker": "INTU",
+                            "Name": "Intuit Inc.",
+                            "Industry": "Software - Application",
+                            "RSI": 24,
+                            "SNP100": "True",
+                            "股市貴族": "False"
+                            }
                         ],
                         "dividends": [
                             {
-                                "Ticker": "TGT",
-                                "Div_Date": "2025-08-13",
-                                "Yields": 4.85,
-                                "股息貴族": "False"
+                            "Ticker": "LYB",
+                            "Name": "LyondellBasell Industries N.V.",
+                            "industry": "Specialty Chemicals",
+                            "Div_Date": "2025-08-25",
+                            "Yields": 9.32,
+                            "股息貴族": "False"
                             },
                             {
-                                "Ticker": "MRK",
-                                "Div_Date": "2025-09-15",
-                                "Yields": 4.01,
-                                "股息貴族": "False"
+                            "Ticker": "DOW",
+                            "Name": "Dow Inc.",
+                            "industry": "Chemicals",
+                            "Div_Date": "2025-08-29",
+                            "Yields": 5.58,
+                            "股息貴族": "False"
                             },
                             {
-                                "Ticker": "CMCSA",
-                                "Div_Date": "2025-10-01",
-                                "Yields": 4.06,
-                                "股息貴族": "False"
+                            "Ticker": "KHC",
+                            "Name": "The Kraft Heinz Company",
+                            "industry": "Packaged Foods",
+                            "Div_Date": "2025-08-29",
+                            "Yields": 5.7,
+                            "股息貴族": "False"
                             },
                             {
-                                "Ticker": "TEST",
-                                "Div_Date": "2025-10-01",
-                                "Yields": 4.06,
-                                "股息貴族": "True"
+                            "Ticker": "IPG",
+                            "Name": "The Interpublic Group of Companies, Inc.",
+                            "industry": "Advertising Agencies",
+                            "Div_Date": "2025-09-02",
+                            "Yields": 4.84,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "KEY",
+                            "Name": "KeyCorp",
+                            "industry": "Banks - Regional",
+                            "Div_Date": "2025-09-02",
+                            "Yields": 4.32,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "O",
+                            "Name": "Realty Income Corporation",
+                            "industry": "REIT - Retail",
+                            "Div_Date": "2025-09-02",
+                            "Yields": 5.48,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "SWK",
+                            "Name": "Stanley Black & Decker, Inc.",
+                            "industry": "Tools & Accessories",
+                            "Div_Date": "2025-09-02",
+                            "Yields": 4.28,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "AMCR",
+                            "Name": "Amcor plc",
+                            "industry": "Packaging & Containers",
+                            "Div_Date": "2025-09-05",
+                            "Yields": 5.86,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "D",
+                            "Name": "Dominion Energy, Inc.",
+                            "industry": "Utilities - Regulated Electric",
+                            "Div_Date": "2025-09-05",
+                            "Yields": 4.31,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "KIM",
+                            "Name": "Kimco Realty Corporation",
+                            "industry": "REIT - Retail",
+                            "Div_Date": "2025-09-05",
+                            "Yields": 4.5,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "SPG",
+                            "Name": "Simon Property Group, Inc.",
+                            "industry": "REIT - Retail",
+                            "Div_Date": "2025-09-09",
+                            "Yields": 4.87,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "HPQ",
+                            "Name": "HP Inc.",
+                            "industry": "Computer Hardware",
+                            "Div_Date": "2025-09-10",
+                            "Yields": 4.17,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "MO",
+                            "Name": "Altria Group, Inc.",
+                            "industry": "Tobacco",
+                            "Div_Date": "2025-09-15",
+                            "Yields": 6.27,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "CCI",
+                            "Name": "Crown Castle Inc.",
+                            "industry": "REIT - Specialty",
+                            "Div_Date": "2025-09-15",
+                            "Yields": 4.09,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "EMN",
+                            "Name": "Eastman Chemical Company",
+                            "industry": "Specialty Chemicals",
+                            "Div_Date": "2025-09-15",
+                            "Yields": 4.78,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "EXR",
+                            "Name": "Extra Space Storage Inc.",
+                            "industry": "REIT - Industrial",
+                            "Div_Date": "2025-09-15",
+                            "Yields": 4.54,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "TROW",
+                            "Name": "T. Rowe Price Group, Inc.",
+                            "industry": "Asset Management",
+                            "Div_Date": "2025-09-15",
+                            "Yields": 4.69,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "DOC",
+                            "Name": "Healthpeak Properties, Inc.",
+                            "industry": "REIT - Healthcare Facilities",
+                            "Div_Date": "2025-09-19",
+                            "Yields": 6.87,
+                            "股息貴族": "False"
+                            },
+                            {
+                            "Ticker": "FRT",
+                            "Name": "Federal Realty Investment Trust",
+                            "industry": "REIT - Retail",
+                            "Div_Date": "2025-10-01",
+                            "Yields": 4.54,
+                            "股息貴族": "False"
                             }
                         ],
                         "drops": [
                             {
-                                "Ticker": "ALGN",
-                                "最大跌幅": "33.93%",
+                            "Ticker": "CNC",
+                            "Name": "Centene Corporation",
+                            "Industry": "Healthcare Plans",
+                            "最大跌幅": "48.08%",
+                            "SNP100": "False",
+                            "股市貴族": "False"
                             },
                             {
-                               "Ticker": "BAX",
-                                "最大跌幅": "29.2%",
+                            "Ticker": "MOH",
+                            "Name": "Molina Healthcare, Inc.",
+                            "Industry": "Healthcare Plans",
+                            "最大跌幅": "43.05%",
+                            "SNP100": "False",
+                            "股市貴族": "False"
                             },
                             {
-                                "Ticker": "CNC",
-                                "最大跌幅": "59.86%",
+                            "Ticker": "IT",
+                            "Name": "Gartner, Inc.",
+                            "Industry": "Information Technology Services",
+                            "最大跌幅": "42.74%",
+                            "SNP100": "False",
+                            "股市貴族": "False"
+                            },
+                            {
+                            "Ticker": "TTD",
+                            "Name": "The Trade Desk, Inc.",
+                            "Industry": "Advertising Agencies",
+                            "最大跌幅": "40.73%",
+                            "SNP100": "False",
+                            "股市貴族": "False"
+                            },
+                            {
+                            "Ticker": "LULU",
+                            "Name": "lululemon athletica inc.",
+                            "Industry": "Apparel Retail",
+                            "最大跌幅": "38.07%",
+                            "SNP100": "False",
+                            "股市貴族": "False"
+                            },
+                            {
+                            "Ticker": "CHTR",
+                            "Name": "Charter Communications, Inc.",
+                            "Industry": "Telecom Services",
+                            "最大跌幅": "33.63%",
+                            "SNP100": "False",
+                            "股市貴族": "False"
                             }
-                        ]
+                        ],
+                        "alerts": []
                     })
                 })
                 .then(res => res.json())
@@ -2097,10 +2305,12 @@
                     <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Dividends</button>
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
-                <div id="stock-tag-area-RSI" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-50 rounded shadow" style="display:block"></div>
-                <div id="stock-tag-area-drops" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-green-50 rounded shadow" style="display:none"></div>
-                <div id="stock-tag-area-dividends" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-yellow-50 rounded shadow" style="display:none"></div>
-                <div id="update-info" class="text-gray-500 mb-2"></div>
+                 <div id="tag-areas">
+                    <div id="stock-tag-area-RSI" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-50 rounded shadow" style="display:block"></div>
+                    <div id="stock-tag-area-drops" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-green-50 rounded shadow" style="display:none"></div>
+                    <div id="stock-tag-area-dividends" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-yellow-50 rounded shadow" style="display:none"></div>
+                    <div id="update-info" class="text-gray-500 mb-2"></div>
+                 </div>
             </div>
         </div>
         <!-- Loading 讀取區（預設隱藏）-->
