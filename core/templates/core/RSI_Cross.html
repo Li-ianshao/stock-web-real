@@ -98,8 +98,27 @@
                             if (symbolItem.股息貴族){
                                 if (symbolItem.股息貴族 === "True" || symbolItem.股息貴族 === true) {
                                     tag.className += " bg-green-300 text-white border-2 border-blue-800";
+
+                                    if (symbolItem.SNP100){//是股息貴族又是S&P100
+                                        if (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true) {
+                                            tag.className += " bg-green-500 text-white border-2 border-blue-800";
+                                        }
+                                    }
                                 }
                             }
+
+                            if (symbolItem.股市貴族){
+                                if (symbolItem.股市貴族 === "True" || symbolItem.股市貴族 === true) {
+                                    tag.className += " bg-green-300 text-white border-2 border-blue-800";
+
+                                    if (symbolItem.SNP100){//是股市貴族又是S&P100
+                                        if (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true) {
+                                            tag.className += " bg-green-500 text-white border-2 border-blue-800";
+                                        }
+                                    }
+                                }
+                            }
+
                             
 
                            // ----- 手機長按 -----
@@ -863,7 +882,7 @@
                             "Industry": "Semiconductor Equipment & Materials",
                             "RSI": 34,
                             "SNP100": "True",
-                            "股市貴族": "False"
+                            "股市貴族": "True"
                             }
                         ],
                         "RSI_Below30": [
@@ -873,7 +892,7 @@
                             "Industry": "Information Technology Services",
                             "RSI": 29,
                             "SNP100": "False",
-                            "股市貴族": "False"
+                            "股市貴族": "True"
                             },
                             {
                             "Ticker": "INTU",
@@ -881,7 +900,7 @@
                             "Industry": "Software - Application",
                             "RSI": 24,
                             "SNP100": "True",
-                            "股市貴族": "False"
+                            "股市貴族": "True"
                             }
                         ],
                         "dividends": [
@@ -891,7 +910,7 @@
                             "industry": "Specialty Chemicals",
                             "Div_Date": "2025-08-25",
                             "Yields": 9.32,
-                            "股息貴族": "False"
+                            "股息貴族": "True"
                             },
                             {
                             "Ticker": "DOW",
@@ -1088,7 +1107,8 @@
                             "股市貴族": "False"
                             }
                         ],
-                        "alerts": []
+                        "alerts": [],
+                        "testingArea": []
                     })
                 })
                 .then(res => res.json())
@@ -2306,9 +2326,6 @@
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
                  <div id="tag-areas">
-                    <div id="stock-tag-area-RSI" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-50 rounded shadow" style="display:block"></div>
-                    <div id="stock-tag-area-drops" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-green-50 rounded shadow" style="display:none"></div>
-                    <div id="stock-tag-area-dividends" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-yellow-50 rounded shadow" style="display:none"></div>
                     <div id="update-info" class="text-gray-500 mb-2"></div>
                  </div>
             </div>
