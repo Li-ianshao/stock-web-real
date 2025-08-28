@@ -861,7 +861,7 @@
                     renderAllStockTags(data=data.data,update_time=date)
                 });
             }
-            //sendData()
+            sendData()
             function sendData () {
                 fetch('/core/api/stockdata/', {
                     method: 'POST',
@@ -2320,9 +2320,7 @@
             <div class="flex-1 ml-2">
                 <!-- 小型頁籤 -->
                 <div id="stock-tag-tabs" class="flex space-x-2 mb-2">
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-white text-gray-700 border-b-2 border-blue-500 font-semibold focus:outline-none" onclick="showStockTagArea('RSI')" id="stock-tag-tab-RSI">RSI_Xover_30</button>
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('drops')" id="stock-tag-tab-drops">Drop</button>
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Dividends</button>
+                    
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
                  <div id="tag-areas">
