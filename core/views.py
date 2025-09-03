@@ -130,14 +130,16 @@ def stockdata_api(request):
 
             try:
                 q = FH.quote(symbol)  # { c, d, dp, h, l, o, pc, ... }
-                print(q)
+                #print(now)
                 payload = {
                     'ts': now,
                     'price': round(q.get('c', 0), 1),
                     'change': round(q.get('d', 0), 1),
                     'percent': round(q.get('dp', 0), 1),
                 }
+                #print(payload)
                 QUOTE_CACHE[symbol] = payload
+                print(QUOTE_CACHE[symbol])
                 return JsonResponse({
                     'status': 'success',
                     'feature': 'quote',

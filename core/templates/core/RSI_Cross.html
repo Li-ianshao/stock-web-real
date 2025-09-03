@@ -19,6 +19,26 @@
                 "bg-red-200", "bg-blue-200", "bg-green-200", "bg-yellow-200",
                 "bg-purple-200", "bg-pink-200", "bg-indigo-200"
             ];
+            const INDEX_LIST = [
+                { symbol: "SPY",  label: "S&P 500" },
+                { symbol: "QQQ",  label: "NASDAQ 100" },
+                { symbol: "DIA",  label: "Dow Jones" },
+                { symbol: "IWM",  label: "Russell 2000" },
+            ];
+
+            const SECTOR_LIST = [
+                { symbol: "XLK", label: "資訊科技" },
+                { symbol: "XLE", label: "能源" },
+                { symbol: "XLF", label: "金融" },
+                { symbol: "XLY", label: "非必需消費" },
+                { symbol: "XLP", label: "必需消費" },
+                { symbol: "XLI", label: "工業" },
+                { symbol: "XLV", label: "醫療保健" },
+                { symbol: "XLU", label: "公用事業" },
+                { symbol: "XLB", label: "原物料" },
+                { symbol: "XLRE",label: "不動產" },
+                { symbol: "XLC", label: "通訊服務" },
+            ];
             
             
 
@@ -98,13 +118,13 @@
                             if (symbolItem.股息貴族 || symbolItem.股市貴族){
                                 if (symbolItem.股息貴族 === "True" || symbolItem.股息貴族 === true) {
                                     if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
-                                        tag.className += " bg-teal-400 text-white border-2 border-blue-800";
+                                        tag.className += " bg-yellow-300 text-white border-2 border-blue-800";
                                     }else{//是股息貴族但不是S&P100
                                         tag.className += " bg-lime-300 text-white border-2 border-blue-800";
                                     }
                                 } else if (symbolItem.股市貴族 === "True" || symbolItem.股市貴族 === true){
                                     if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
-                                        tag.className += " bg-teal-400 text-white border-2 border-blue-800";
+                                        tag.className += " bg-yellow-300 text-white border-2 border-blue-800";
                                     }else{//是股市貴族但不是S&P100
                                         tag.className += " bg-lime-300 text-white border-2 border-blue-800";
                                     }
@@ -193,7 +213,7 @@
             }
 
             function addOrSwitchTab(symbol, category = '') {
-                fetchNewestClose(symbol)
+                updateNewestClose(symbol)
                 
                 // 標籤樣式管理
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
@@ -809,7 +829,7 @@
                         heatmap_div_detail[symbol] = data.heatmap_div_detail
                         news_saved[symbol] = data.news_list
                         stockContentDict[symbol] = content.innerHTML;
-                        fetchNewestClose(symbol)
+                        updateNewestClose(symbol)
 
                         // 只顯示當前 tab（避免 race condition）
                         if (activeTab === symbol) {
@@ -861,29 +881,91 @@
             }
 
             function fetchNewestClose (symbol) {
-                console.log(symbol)
-                fetch(`/core/api/stockdata?feature=lastClose&symbol=${symbol}`)
-                .then(res => res.json())
-                .then(data => {
-                    console.log(data)
-                    if (data.status === "success") {
+                if (symbol){
+                    return fetch(`/core/api/stockdata?feature=lastClose&symbol=${symbol}`)
+                    .then(res => res.json())
+                } else {
+                    // 如果沒有 symbol，直接回一個失敗的 Promise，避免回 undefined
+                    return Promise.reject(new Error("symbol is required"));
+                }
+            }
 
-                        // 例如更新畫面某個元素
-                        const el = document.getElementById(`price-${symbol}`);
-                        if (el) {
-                            el.textContent = `$ ${data.data.price}`;
-                            el.style.fontSize = `x-large`;
+            function updateNewestClose (symbol) {
+                fetchNewestClose(symbol).then(data => {
+                    console.log("API 回傳:", data);
+                    if (data){
+                        console.log("有資料")
+                        console.log(data)
+                        if (data.status === "success") {
+
+                            // 例如更新畫面某個元素
+                            const el = document.getElementById(`price-${symbol}`);
+                            if (el) {
+                                el.textContent = `$ ${data.data.price}`;
+                                el.style.fontSize = `x-large`;
+                            }
+                            const el2 = document.getElementById(`priceChange-${symbol}`);
+                            if (el2) {
+                                el2.textContent = ` ${data.data.change} (${data.data.percent > 0 ? '+' : ''}${data.data.percent}%)`;
+                                el2.style.color = data.data.percent >= 0 ? "green" : "red";
+                                el2.style.fontSize = `x-large`;
+                            }
+                        } else {
+                            console.error("後端回傳錯誤:", data.msg);
                         }
-                        const el2 = document.getElementById(`priceChange-${symbol}`);
-                        if (el2) {
-                            el2.textContent = ` ${data.data.change} (${data.data.percent > 0 ? '+' : ''}${data.data.percent}%)`;
-                            el2.style.color = data.data.percent >= 0 ? "green" : "red";
-                            el2.style.fontSize = `x-large`;
-                        }
-                    } else {
-                        console.error("後端回傳錯誤:", data.msg);
                     }
                 });
+                
+            }
+
+            // 產生卡片 DOM（依漲跌變色）
+            function makeCard({ symbol, label, price, change, percent }) {
+            const up = percent > 0, down = percent < 0;
+            const tone = up ? "text-green-700 bg-green-50 border-green-200"
+                        : down ? "text-rose-700 bg-rose-50 border-rose-200"
+                        : "text-slate-700 bg-slate-50 border-slate-200";
+
+            const arrow = up ? "▲" : down ? "▼" : "■";
+
+            const div = document.createElement("div");
+            div.className = `rounded-xl border ${tone} p-3 flex flex-col gap-1`;
+            div.innerHTML = `
+                <div class="flex items-center justify-between">
+                <div class="font-semibold">${label}</div>
+                <div class="text-xs opacity-70">${symbol}</div>
+                </div>
+                <div class="flex items-baseline gap-2">
+                <div class="text-lg font-semibold">$${price}</div>
+                <div class="text-sm">${arrow} ${change} (${percent}%)</div>
+                </div>
+            `;
+            return div;
+            }
+
+            // 根據清單抓取個大指數資料
+            async function renderBoard(list, gridId) {
+                const grid = document.getElementById(gridId);
+                grid.innerHTML = ""; // 清空
+                for (const item of list) {
+                    try {
+                        console.log(item.symbol)
+                        fetchNewestClose(item.symbol).then(data => {
+                            grid.appendChild(makeCard({
+                                symbol: item.symbol,
+                                label: item.label,
+                                price: data.data.price,
+                                change: data.data.change,
+                                percent: data.data.percent
+                            }));
+                        });
+                    } catch (e) {
+                        const err = document.createElement("div");
+                        err.className = "rounded-xl border bg-yellow-50 border-yellow-200 text-yellow-800 p-3";
+                        err.textContent = `${item.label} (${item.symbol}) 取價失敗`;
+                        grid.appendChild(err);
+                        console.error(item.symbol, e);
+                    }
+                }
             }
 
             //sendData()
@@ -1141,8 +1223,11 @@
                 .then(data => console.log(data));
             }
 
-            setInterval(fetchData, 100000);
-            setInterval(fetchNewestClose(activeTab), 50000);
+            setInterval(fetchData, 300000);
+            setInterval(updateNewestClose(activeTab), 300000);
+            setInterval(renderBoard(INDEX_LIST, "stock-tag-area-major"), 300000);
+            setInterval(renderBoard(SECTOR_LIST, "stock-tag-area-Sector"), 300000);
+            
 
             // 安全轉義（避免把原文注入成 HTML）
             function escapeHTML(str = "") {
@@ -2231,6 +2316,8 @@
 
             window.addEventListener('DOMContentLoaded', () => {
                 fetchData();
+                renderBoard(INDEX_LIST, "stock-tag-area-major");
+                renderBoard(SECTOR_LIST, "stock-tag-area-Sector");
             });
 
             function showStockTagArea(type) {
@@ -2347,10 +2434,13 @@
             <div class="flex-1 ml-2">
                 <!-- 小型頁籤 -->
                 <div id="stock-tag-tabs" class="flex space-x-2 mb-2">
-                    
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('major')" id="stock-tag-tab-major">OMNI</button>
+                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('Sector')" id="stock-tag-tab-major">Sector</button>
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
                  <div id="tag-areas">
+                    <div id="stock-tag-area-major" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-200 rounded shadow"></div>
+                    <div id="stock-tag-area-Sector" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-200 rounded shadow hidden"></div>
                     <div id="update-info" class="text-gray-500 mb-2"></div>
                  </div>
             </div>
