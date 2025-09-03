@@ -80,7 +80,25 @@ def get_rsi_crossover_stocks(request):
         'rsi_crossover':rsi_crossover
     })
 
+
+
+import requests
+
+# 載入 .env 檔案
+load_dotenv()
+
+
+AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
+AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
+AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+
+BASE = "https://finnhub.io/api/v1"
+
 latest_stock_data = None
+FH = finnhub.Client(api_key=FINNHUB_API_KEY)
+QUOTE_CACHE = {}
+CACHE_TTL = 15   # 秒
 
 @csrf_exempt
 def stockdata_api(request):
@@ -99,6 +117,39 @@ def stockdata_api(request):
             return JsonResponse({'status': 'error', 'msg': f'資料格式錯誤: {e}'}, status=400)
     
     elif request.method == 'GET':
+        feature = request.GET.get('feature', '').lower()
+       
+        if feature == 'lastclose':
+            # 例：/api/stockdata?feature=lastClose&symbol=INTU
+            symbol = (request.GET.get('symbol') or '').upper().strip()
+            
+            if not symbol:
+                return JsonResponse({'status': 'error', 'msg': '缺少 symbol 參數'}, status=400)
+            
+            now = int(time.time())
+
+            try:
+                q = FH.quote(symbol)  # { c, d, dp, h, l, o, pc, ... }
+                print(q)
+                payload = {
+                    'ts': now,
+                    'price': round(q.get('c', 0), 1),
+                    'change': round(q.get('d', 0), 1),
+                    'percent': round(q.get('dp', 0), 1),
+                }
+                QUOTE_CACHE[symbol] = payload
+                return JsonResponse({
+                    'status': 'success',
+                    'feature': 'quote',
+                    'symbol': symbol,
+                    'data': payload
+                }, status=200)
+            except Exception as e:
+                return JsonResponse({
+                    'status': 'error',
+                    'msg': f'Finnhub 取價失敗: {e}'
+                }, status=502)
+
         # 2. 回傳最新資料
         if latest_stock_data is not None:
             return JsonResponse(latest_stock_data, safe=False)
@@ -109,18 +160,6 @@ def stockdata_api(request):
         return JsonResponse({'status': 'error', 'msg': '不支援的方法'}, status=405)
     
 
-import requests
-
-# 載入 .env 檔案
-load_dotenv()
-
-
-AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
-AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
-AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
-
-BASE = "https://finnhub.io/api/v1"
 
 def _check_key():
     api_key = FINNHUB_API_KEY
@@ -253,8 +292,8 @@ def stock_api(request, symbol):
     short_interest = stock_data[symbol]['info'].get("sharesShort", None)   # 放空股數
     short_ratio = stock_data[symbol]['info'].get("shortRatio", None)       # 放空比率
 
-    print(f"Short Interest: {short_interest}")
-    print(f"Short Ratio: {short_ratio}")
+    # print(f"Short Interest: {short_interest}")
+    # print(f"Short Ratio: {short_ratio}")
 
     news_list = []
     for news in stock_data.get(symbol, {}).get('news', []):
@@ -278,7 +317,7 @@ def stock_api(request, symbol):
     goals=[2, 4, 6, 8, 10]
 
     historical_data = fetch_historical_data(symbol,period=period,holding_days=holding_days, goals=goals)
-    print(historical_data)
+    # print(historical_data)
 
     if historical_data is None or historical_data.empty:
         historical_data = pd.DataFrame(columns=['None', 'no data'])
@@ -692,7 +731,7 @@ def stock_api(request, symbol):
             # 轉成「標題: 值」陣列
             # yfinance 常見行為：第一欄為數值、第二欄為描述
             for index, row in mh.iterrows():
-                print(index)
+                # print(index)
                 try:
                     value = mh.loc[index, 'Value']
                     label = index
@@ -727,7 +766,7 @@ def stock_api(request, symbol):
     
     #取得Form 4 資料
     Form4 = get_form4_clean(symbol, only_buy_sell=False)
-    print(Form4)
+    # print(price_data)
     
     Form4_transactions = Form4.to_dict(orient="records") if not Form4.empty else []
     
@@ -813,7 +852,7 @@ def get_raw_data(period='3mo'):
 
 @login_required
 def clear_cache_view(request):
-    print('clear_cache_view');
+    # print('clear_cache_view');
     clear_all_pickles()
     return redirect('tab_dividend')  # 或跳回首頁頁籤
 

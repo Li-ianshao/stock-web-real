@@ -95,32 +95,24 @@
                             tag.innerText = symbolItem.Ticker;
                             tag.dataset.symbol = symbolItem.Ticker;
 
-                            if (symbolItem.股息貴族){
+                            if (symbolItem.股息貴族 || symbolItem.股市貴族){
                                 if (symbolItem.股息貴族 === "True" || symbolItem.股息貴族 === true) {
-                                    tag.className += " bg-green-300 text-white border-2 border-blue-800";
-
-                                    if (symbolItem.SNP100){//是股息貴族又是S&P100
-                                        if (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true) {
-                                            tag.className += " bg-green-500 text-white border-2 border-blue-800";
-                                        }
+                                    if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
+                                        tag.className += " bg-teal-400 text-white border-2 border-blue-800";
+                                    }else{//是股息貴族但不是S&P100
+                                        tag.className += " bg-lime-300 text-white border-2 border-blue-800";
                                     }
+                                } else if (symbolItem.股市貴族 === "True" || symbolItem.股市貴族 === true){
+                                    if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
+                                        tag.className += " bg-teal-400 text-white border-2 border-blue-800";
+                                    }else{//是股市貴族但不是S&P100
+                                        tag.className += " bg-lime-300 text-white border-2 border-blue-800";
+                                    }
+                                }  else if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
+                                    tag.className += " bg-sky-300 text-white border-2 border-blue-800";
                                 }
                             }
-
-                            if (symbolItem.股市貴族){
-                                if (symbolItem.股市貴族 === "True" || symbolItem.股市貴族 === true) {
-                                    tag.className += " bg-green-300 text-white border-2 border-blue-800";
-
-                                    if (symbolItem.SNP100){//是股市貴族又是S&P100
-                                        if (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true) {
-                                            tag.className += " bg-green-500 text-white border-2 border-blue-800";
-                                        }
-                                    }
-                                }
-                            }
-
                             
-
                            // ----- 手機長按 -----
                             let pressTimer = null;
                             tag.addEventListener('touchstart', function(e) {
@@ -201,6 +193,7 @@
             }
 
             function addOrSwitchTab(symbol, category = '') {
+                fetchNewestClose(symbol)
                 
                 // 標籤樣式管理
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
@@ -287,6 +280,10 @@
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
                             <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
                                 <h3 class="text-lg font-semibold text-gray-800">📄 公司基本資料與描述</h3>
+                                <div class="flex items-center gap-2">
+                                    <span id="price-${data.symbol}"></span>
+                                    <span id="priceChange-${data.symbol}"></span>
+                                </div>
                                 <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
                             </div>
                             <div x-show="open" class="mt-4 text-gray-700">
@@ -812,6 +809,7 @@
                         heatmap_div_detail[symbol] = data.heatmap_div_detail
                         news_saved[symbol] = data.news_list
                         stockContentDict[symbol] = content.innerHTML;
+                        fetchNewestClose(symbol)
 
                         // 只顯示當前 tab（避免 race condition）
                         if (activeTab === symbol) {
@@ -861,7 +859,34 @@
                     renderAllStockTags(data=data.data,update_time=date)
                 });
             }
-            //sendData()
+
+            function fetchNewestClose (symbol) {
+                console.log(symbol)
+                fetch(`/core/api/stockdata?feature=lastClose&symbol=${symbol}`)
+                .then(res => res.json())
+                .then(data => {
+                    console.log(data)
+                    if (data.status === "success") {
+
+                        // 例如更新畫面某個元素
+                        const el = document.getElementById(`price-${symbol}`);
+                        if (el) {
+                            el.textContent = `$ ${data.data.price}`;
+                            el.style.fontSize = `x-large`;
+                        }
+                        const el2 = document.getElementById(`priceChange-${symbol}`);
+                        if (el2) {
+                            el2.textContent = ` ${data.data.change} (${data.data.percent > 0 ? '+' : ''}${data.data.percent}%)`;
+                            el2.style.color = data.data.percent >= 0 ? "green" : "red";
+                            el2.style.fontSize = `x-large`;
+                        }
+                    } else {
+                        console.error("後端回傳錯誤:", data.msg);
+                    }
+                });
+            }
+
+            sendData()
             function sendData () {
                 fetch('/core/api/stockdata/', {
                     method: 'POST',
@@ -1038,6 +1063,7 @@
                             "industry": "Asset Management",
                             "Div_Date": "2025-09-15",
                             "Yields": 4.69,
+                            "SNP100": "True",
                             "股息貴族": "False"
                             },
                             {
@@ -1063,7 +1089,7 @@
                             "Name": "Centene Corporation",
                             "Industry": "Healthcare Plans",
                             "最大跌幅": "48.08%",
-                            "SNP100": "False",
+                            "SNP100": "True",
                             "股市貴族": "False"
                             },
                             {
@@ -1071,7 +1097,7 @@
                             "Name": "Molina Healthcare, Inc.",
                             "Industry": "Healthcare Plans",
                             "最大跌幅": "43.05%",
-                            "SNP100": "False",
+                            "SNP100": "True",
                             "股市貴族": "False"
                             },
                             {
@@ -1079,8 +1105,8 @@
                             "Name": "Gartner, Inc.",
                             "Industry": "Information Technology Services",
                             "最大跌幅": "42.74%",
-                            "SNP100": "False",
-                            "股市貴族": "False"
+                            "SNP100": "True",
+                            "股市貴族": "True"
                             },
                             {
                             "Ticker": "TTD",
@@ -1116,6 +1142,7 @@
             }
 
             setInterval(fetchData, 100000);
+            setInterval(fetchNewestClose(activeTab), 50000);
 
             // 安全轉義（避免把原文注入成 HTML）
             function escapeHTML(str = "") {
