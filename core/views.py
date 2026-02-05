@@ -29,10 +29,11 @@ from django.views.decorators.csrf import csrf_exempt
 ch_font = FontProperties(fname='C:/Windows/Fonts/msjh.ttc')  # Windows 微軟正黑體路徑
 import re
 import time
-import finnhub
+import requests
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
+# 將歷年股價資料的nan或是空值轉換成none 屬於工具類
 def nan_to_none(obj):
     if isinstance(obj, float) and np.isnan(obj):
         return None
@@ -43,62 +44,22 @@ def nan_to_none(obj):
     return obj
 
 
-def get_rsi_crossover_stocks(request):
-    sp500 = get_sp500_tickers()
-    # print('抓取S&P500')
-    # print(sp500)
 
-    # data = get_raw_data(period='6mo')
-    # last_updated = get_last_update_time()
-    
-    data = getData(sp500)   # 你自己的函數，必須 MultiIndex: (ticker, Date)
-    data = data.sort_index()
-    rsi_crossover = []
-
-    for ticker in sp500:
-        try:
-            #print(ticker)
-            df = data.loc[(ticker,),].T
-
-            if df.empty or len(df) < 20:
-                continue
-            # === 修正這一行！ ===
-            df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi().squeeze()
-            df = df.dropna()
-            if len(df) >= 2:
-                if (df['RSI'].iloc[-2] < 30) and (df['RSI'].iloc[-1] >= 30):
-                    rsi_crossover.append(ticker)
-                    #print(ticker)
-        except Exception as e:
-            print(f"{ticker} error: {e}")
-
-    # print("出現 RSI crossover 30 的 S&P500 公司：")
-    # print(rsi_crossover)
-    # print(f"總共: {len(rsi_crossover)} 檔")
-
-    return JsonResponse({
-        'rsi_crossover':rsi_crossover
-    })
-
-
-
-import requests
-
+#========================================================================================
+# 設定Azure翻譯套件環境
 # 載入 .env 檔案
 load_dotenv()
-
 
 AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
 AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
 AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 
-BASE = "https://finnhub.io/api/v1"
+#=======================================================================================
+
+
+
 
 latest_stock_data = None
-FH = finnhub.Client(api_key=FINNHUB_API_KEY)
-QUOTE_CACHE = {}
-CACHE_TTL = 15   # 秒
 
 @csrf_exempt
 def stockdata_api(request):
@@ -112,57 +73,28 @@ def stockdata_api(request):
                 "update_time": time.time(),  # UNIX timestamp
                 "data": data
             }
+            # 將資料寫入檔案
+            with open('latest_data.json', 'w', encoding='utf-8') as f:
+                json.dump(latest_stock_data, f)
             return JsonResponse({'status': 'success', 'msg': '資料已收到並存儲'}, status=200)
         except Exception as e:
             return JsonResponse({'status': 'error', 'msg': f'資料格式錯誤: {e}'}, status=400)
     
     elif request.method == 'GET':
-        feature = request.GET.get('feature', '').lower()
-       
-        if feature == 'lastclose':
-            # 例：/api/stockdata?feature=lastClose&symbol=INTU
-            symbol = (request.GET.get('symbol') or '').upper().strip()
-            
-            if not symbol:
-                return JsonResponse({'status': 'error', 'msg': '缺少 symbol 參數'}, status=400)
-            
-            now = int(time.time())
-
-            try:
-                q = FH.quote(symbol)  # { c, d, dp, h, l, o, pc, ... }
-                #print(now)
-                payload = {
-                    'ts': now,
-                    'price': round(q.get('c', 0), 1),
-                    'change': round(q.get('d', 0), 1),
-                    'percent': round(q.get('dp', 0), 1),
-                }
-                #print(payload)
-                QUOTE_CACHE[symbol] = payload
-                print(QUOTE_CACHE[symbol])
-                return JsonResponse({
-                    'status': 'success',
-                    'feature': 'quote',
-                    'symbol': symbol,
-                    'data': payload
-                }, status=200)
-            except Exception as e:
-                return JsonResponse({
-                    'status': 'error',
-                    'msg': f'Finnhub 取價失敗: {e}'
-                }, status=502)
-
         # 2. 回傳最新資料
         if latest_stock_data is not None:
             return JsonResponse(latest_stock_data, safe=False)
         else:
-            return JsonResponse({'status': 'empty', 'msg': '目前無資料'}, status=200)
+            with open('latest_data.json', 'r', encoding='utf-8') as f:
+                latest_stock_data = json.load(f)
+            return JsonResponse(latest_stock_data, safe=False)
 
     else:
         return JsonResponse({'status': 'error', 'msg': '不支援的方法'}, status=405)
     
 
-
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+# 設定FinHub的環境變數，用來抓Form4的必要設定
 def _check_key():
     api_key = FINNHUB_API_KEY
     if not api_key:
@@ -191,6 +123,8 @@ def get_form4_data(symbol: str, from_date: str = None, to_date: str = None, with
     tx_params = {"symbol": symbol, "token": token}
     if from_date: tx_params["from"] = from_date
     if to_date:   tx_params["to"] = to_date
+
+    BASE = "https://finnhub.io/api/v1"
 
     tx_resp = requests.get(f"{BASE}/stock/insider-transactions", params=tx_params, timeout=30)
     tx_resp.raise_for_status()
@@ -359,107 +293,6 @@ def stock_api(request, symbol):
     df['MACD_GC'] = (df['MACD'].shift(1) < df['MACD_signal'].shift(1)) & (df['MACD'] >= df['MACD_signal'])
     df['RSI_Cross30'] = (df['RSI'].shift(1) < 30) & (df['RSI'] >= 30)
 
-    # ----------- 畫圖 -----------
-    # fig, axes = plt.subplots(3, 1, figsize=(16, 12), sharex=True, gridspec_kw={'height_ratios':[3,1.2,1]})
-
-    
-    # dates = df.index
-    # candle_w = 2  # 使用時間軸，width設2天
-
-    # n_labels = 12
-    # date_ticks = np.linspace(0, len(df.index) - 1, n_labels, dtype=int)
-    # date_labels = [df.index[i].strftime('%Y-%m-%d') for i in date_ticks]
-
-    # for ax in axes:
-    #     ax.set_xticks(df.index[date_ticks])
-    #     ax.set_xticklabels(date_labels, rotation=45, ha='right', fontsize=12)
-            
-        
-
-    # # 1. K線 + BBAND + 量
-    # ax = axes[0]
-    # up = df['Close'] >= df['Open']
-    # down = ~up
-    # ax.bar(dates[up], df['Close'][up]-df['Open'][up], candle_w, bottom=df['Open'][up], color='green', edgecolor='k', label='Up')
-    # ax.bar(dates[down], df['Close'][down]-df['Open'][down], candle_w, bottom=df['Open'][down], color='red', edgecolor='k', label='Down')
-    # ax.vlines(dates, df['Low'], df['High'], color='black', linewidth=0.5)
-    # ax.plot(dates, df['BB_Upper'], color='blue', linestyle='--', label='BBand Upper')
-    # ax.plot(dates, df['BB_Lower'], color='blue', linestyle='--', label='BBand Lower')
-    # bb_cross = df[df['BB_Lower_Cross']]
-    # ax.scatter(bb_cross.index, bb_cross['Low']*0.98, color='magenta', marker='o', s=60, label='BBand Lower Break')
-    # for idx, row in bb_cross.iterrows():
-    #     y = row['Low']*0.96
-    #     date_str = idx.strftime('%Y-%m-%d')
-    #     ax.text(idx, y, date_str, color='magenta', fontsize=8, rotation=90, ha='center', va='top')
-    # ax2 = ax.twinx()
-    # ax2.bar(dates, df['Volume'], width=candle_w, color='navy', alpha=0.4, label='Volume')
-    # ax2.set_ylim(0, df['Volume'].max()*5)
-    # ax2.axis('off')
-    # ax.set_ylabel("Price")
-    # ax.set_title(f"{symbol} Candlestick / BBands / Volume")
-    # ax.legend(loc='upper left')
-
-    # # 2. MACD
-    # # 先計算 histogram 變動方向
-    # hist = df['MACD_hist'].values
-    # # 上一根
-    # hist_prev = np.roll(hist, 1)
-    # hist_prev[0] = np.nan
-
-    # # 分類
-    # cond1 = (hist > 0) & (hist > hist_prev)      # 上面且繼續走高 → 亮綠
-    # cond2 = (hist > 0) & (hist <= hist_prev)     # 上面但回落   → 暗綠
-    # cond3 = (hist < 0) & (hist < hist_prev)      # 下面繼續走低 → 紅色
-    # cond4 = (hist < 0) & (hist >= hist_prev)     # 下面但回升   → 暗紅
-
-    # dates = df.index
-
-    # ax = axes[1]
-    # pos = df['MACD_hist'] > 0
-    # neg = ~pos
-    # # ax.bar(dates[pos], df.loc[pos, 'MACD_hist'], color='green', alpha=0.85, label='MACD Hist +')
-    # # ax.bar(dates[neg], df.loc[neg, 'MACD_hist'], color='red', alpha=0.85, label='MACD Hist -')
-    # ax.bar(dates[cond1], hist[cond1], color='#22c55e', alpha=0.9, label='MACD Hist up ↑')    # 亮綠
-    # ax.bar(dates[cond2], hist[cond2], color='#166534', alpha=0.85, label='MACD Hist weak ↑') # 暗綠
-    # ax.bar(dates[cond3], hist[cond3], color='#ef4444', alpha=0.85, label='MACD Hist down ↓') # 紅
-    # ax.bar(dates[cond4], hist[cond4], color='#7f1d1d', alpha=0.85, label='MACD Hist weak ↓') # 暗紅
-    # ax.plot(dates, df['MACD'], color='blue', label='MACD')
-    # ax.plot(dates, df['MACD_signal'], color='orange', label='Signal')
-    # macd_cross = df[df['MACD_GC']]
-    # ax.scatter(macd_cross.index, macd_cross['MACD'], color='purple', marker='^', s=80, label='MACD Golden Cross')
-    # for idx, row in macd_cross.iterrows():
-    #     y = row['MACD']-1 if row['MACD'] > 0 else row['MACD']+1
-    #     date_str = idx.strftime('%Y-%m-%d')
-    #     ax.text(idx, y, date_str, color='red', fontsize=8, rotation=90, ha='center', va='top')
-    # ax.set_ylabel('MACD')
-    # ax.set_title("MACD")
-    # ax.legend(loc='upper left')
-
-    # # 3. RSI
-    # ax = axes[2]
-    # ax.plot(dates, df['RSI'], color='purple', label='RSI')
-    # ax.axhline(30, color='grey', linestyle='--', lw=1)
-    # rsi_cross = df[df['RSI_Cross30']]
-    # ax.scatter(rsi_cross.index, rsi_cross['RSI'], color='red', marker='^', s=80, label='RSI Crossover 30')
-    # for idx, row in rsi_cross.iterrows():
-    #     y = row['RSI']*0.97
-    #     date_str = idx.strftime('%Y-%m-%d')
-    #     ax.text(idx, y, date_str, color='purple', fontsize=8, rotation=90, ha='center', va='top')
-    # ax.set_ylabel('RSI')
-    # ax.set_title("RSI")
-    # ax.legend(loc='upper left')
-
-    # # x軸日期旋轉
-    # plt.setp(axes[-1].xaxis.get_majorticklabels(), rotation=45, ha='right')
-    # fig.tight_layout()
-    # fig.autofmt_xdate()
-
-    # buf = io.BytesIO()
-    # plt.savefig(buf, format='png')
-    # buf.seek(0)
-    # img_base64_tech = base64.b64encode(buf.read()).decode('utf-8')
-    # buf.close()
-    # plt.close()
 
     fig, axes = plt.subplots(3, 1, figsize=(16, 12), sharex=True, gridspec_kw={'height_ratios':[3,1.2,1]})
 
@@ -783,7 +616,6 @@ def stock_api(request, symbol):
         "institution_overview": info,      # {institution_percent, insider_percent}
         "institutional_holders": holders,  # list of dict
         "major_holders": major,       # list of {label, value}
-        # 'techmap': img_base64_tech,
         "event_count": len(historical_data),
         'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
         'sharesShort': stock_data[symbol]['info'].get('sharesShort') or stock_data['info'].get('sharesShort',"(Empty)"),

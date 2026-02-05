@@ -83,7 +83,6 @@
                     // 確保有一個區域，若沒有自動建立
                     let tagArea = document.getElementById('stock-tag-area-' + category);
                     const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
-                    //<button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('dividends')" id="stock-tag-tab-dividends">Dividends</button>
                     if (!tagArea) {
                         // 自動建立區塊並增加頁籤
                         tagHeader = document.createElement("button");
@@ -159,7 +158,7 @@
                             ).join('\n');
                             tag.title = msg;
 
-                            // 若要同時保留點擊開標籤、長按才顯示訊息，請看下方B方案
+                            
                         } else {
                             // RSI 之類直接顯示
                             tag.innerText = symbolItem;
@@ -178,30 +177,8 @@
                         document.getElementById("update-info").innerText = "資料更新時間："+update_time;
                     });
                 });
+                showStockTagArea(Object.keys(data)[0]);
             }
-
-            // 假設 data.rsi_crossover 已經是 ["AIG", "COST", ...]
-            // function renderStockTags(tickers) {
-            //     const tagArea = document.getElementById('stock-tag-area-RSI_Over_30');
-            //     tagArea.innerHTML = ""; // 先清空
-
-            //     tickers.forEach(symbol => {
-            //         const tag = document.createElement('span');
-            //         tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow';
-            //         tag.innerText = symbol;
-            //         tag.draggable = true;
-            //         tag.dataset.symbol = symbol;
-            //         // 拖曳開始
-            //         tag.ondragstart = function(e) {
-            //             e.dataTransfer.setData("symbol", symbol);
-            //         };
-            //         // 也可以支援點擊新增
-            //         tag.onclick = function() {
-            //             addOrSwitchTab(symbol);
-            //         };
-            //         tagArea.appendChild(tag);
-            //     });
-            // }
 
             function handleDrop(e) {
                 e.preventDefault();
@@ -213,7 +190,6 @@
             }
 
             function addOrSwitchTab(symbol, category = '') {
-                updateNewestClose(symbol)
                 
                 // 標籤樣式管理
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
@@ -829,7 +805,6 @@
                         heatmap_div_detail[symbol] = data.heatmap_div_detail
                         news_saved[symbol] = data.news_list
                         stockContentDict[symbol] = content.innerHTML;
-                        updateNewestClose(symbol)
 
                         // 只顯示當前 tab（避免 race condition）
                         if (activeTab === symbol) {
@@ -880,44 +855,6 @@
                 });
             }
 
-            function fetchNewestClose (symbol) {
-                if (symbol){
-                    return fetch(`/core/api/stockdata?feature=lastClose&symbol=${symbol}`)
-                    .then(res => res.json())
-                } else {
-                    // 如果沒有 symbol，直接回一個失敗的 Promise，避免回 undefined
-                    return Promise.reject(new Error("symbol is required"));
-                }
-            }
-
-            function updateNewestClose (symbol) {
-                fetchNewestClose(symbol).then(data => {
-                    console.log("API 回傳:", data);
-                    if (data){
-                        console.log("有資料")
-                        console.log(data)
-                        if (data.status === "success") {
-
-                            // 例如更新畫面某個元素
-                            const el = document.getElementById(`price-${symbol}`);
-                            if (el) {
-                                el.textContent = `$ ${data.data.price}`;
-                                el.style.fontSize = `x-large`;
-                            }
-                            const el2 = document.getElementById(`priceChange-${symbol}`);
-                            if (el2) {
-                                el2.textContent = ` ${data.data.change} (${data.data.percent > 0 ? '+' : ''}${data.data.percent}%)`;
-                                el2.style.color = data.data.percent >= 0 ? "green" : "red";
-                                el2.style.fontSize = `x-large`;
-                            }
-                        } else {
-                            console.error("後端回傳錯誤:", data.msg);
-                        }
-                    }
-                });
-                
-            }
-
             // 產生卡片 DOM（依漲跌變色）
             function makeCard({ symbol, label, price, change, percent }) {
             const up = percent > 0, down = percent < 0;
@@ -942,291 +879,7 @@
             return div;
             }
 
-            // 根據清單抓取個大指數資料
-            async function renderBoard(list, gridId) {
-                const grid = document.getElementById(gridId);
-                grid.innerHTML = ""; // 清空
-                for (const item of list) {
-                    try {
-                        console.log(item.symbol)
-                        fetchNewestClose(item.symbol).then(data => {
-                            grid.appendChild(makeCard({
-                                symbol: item.symbol,
-                                label: item.label,
-                                price: data.data.price,
-                                change: data.data.change,
-                                percent: data.data.percent
-                            }));
-                        });
-                    } catch (e) {
-                        const err = document.createElement("div");
-                        err.className = "rounded-xl border bg-yellow-50 border-yellow-200 text-yellow-800 p-3";
-                        err.textContent = `${item.label} (${item.symbol}) 取價失敗`;
-                        grid.appendChild(err);
-                        console.error(item.symbol, e);
-                    }
-                }
-            }
-
-            //sendData()
-            function sendData () {
-                fetch('/core/api/stockdata/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        "RSI": [
-                            {
-                            "Ticker": "TTD",
-                            "Name": "The Trade Desk, Inc.",
-                            "Industry": "Advertising Agencies",
-                            "RSI": 31,
-                            "SNP100": "False",
-                            "股市貴族": "False"
-                            },
-                            {
-                            "Ticker": "AMAT",
-                            "Name": "Applied Materials, Inc.",
-                            "Industry": "Semiconductor Equipment & Materials",
-                            "RSI": 34,
-                            "SNP100": "True",
-                            "股市貴族": "True"
-                            }
-                        ],
-                        "RSI_Below30": [
-                            {
-                            "Ticker": "IT",
-                            "Name": "Gartner, Inc.",
-                            "Industry": "Information Technology Services",
-                            "RSI": 29,
-                            "SNP100": "False",
-                            "股市貴族": "True"
-                            },
-                            {
-                            "Ticker": "INTU",
-                            "Name": "Intuit Inc.",
-                            "Industry": "Software - Application",
-                            "RSI": 24,
-                            "SNP100": "True",
-                            "股市貴族": "True"
-                            }
-                        ],
-                        "dividends": [
-                            {
-                            "Ticker": "LYB",
-                            "Name": "LyondellBasell Industries N.V.",
-                            "industry": "Specialty Chemicals",
-                            "Div_Date": "2025-08-25",
-                            "Yields": 9.32,
-                            "股息貴族": "True"
-                            },
-                            {
-                            "Ticker": "DOW",
-                            "Name": "Dow Inc.",
-                            "industry": "Chemicals",
-                            "Div_Date": "2025-08-29",
-                            "Yields": 5.58,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "KHC",
-                            "Name": "The Kraft Heinz Company",
-                            "industry": "Packaged Foods",
-                            "Div_Date": "2025-08-29",
-                            "Yields": 5.7,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "IPG",
-                            "Name": "The Interpublic Group of Companies, Inc.",
-                            "industry": "Advertising Agencies",
-                            "Div_Date": "2025-09-02",
-                            "Yields": 4.84,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "KEY",
-                            "Name": "KeyCorp",
-                            "industry": "Banks - Regional",
-                            "Div_Date": "2025-09-02",
-                            "Yields": 4.32,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "O",
-                            "Name": "Realty Income Corporation",
-                            "industry": "REIT - Retail",
-                            "Div_Date": "2025-09-02",
-                            "Yields": 5.48,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "SWK",
-                            "Name": "Stanley Black & Decker, Inc.",
-                            "industry": "Tools & Accessories",
-                            "Div_Date": "2025-09-02",
-                            "Yields": 4.28,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "AMCR",
-                            "Name": "Amcor plc",
-                            "industry": "Packaging & Containers",
-                            "Div_Date": "2025-09-05",
-                            "Yields": 5.86,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "D",
-                            "Name": "Dominion Energy, Inc.",
-                            "industry": "Utilities - Regulated Electric",
-                            "Div_Date": "2025-09-05",
-                            "Yields": 4.31,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "KIM",
-                            "Name": "Kimco Realty Corporation",
-                            "industry": "REIT - Retail",
-                            "Div_Date": "2025-09-05",
-                            "Yields": 4.5,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "SPG",
-                            "Name": "Simon Property Group, Inc.",
-                            "industry": "REIT - Retail",
-                            "Div_Date": "2025-09-09",
-                            "Yields": 4.87,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "HPQ",
-                            "Name": "HP Inc.",
-                            "industry": "Computer Hardware",
-                            "Div_Date": "2025-09-10",
-                            "Yields": 4.17,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "MO",
-                            "Name": "Altria Group, Inc.",
-                            "industry": "Tobacco",
-                            "Div_Date": "2025-09-15",
-                            "Yields": 6.27,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "CCI",
-                            "Name": "Crown Castle Inc.",
-                            "industry": "REIT - Specialty",
-                            "Div_Date": "2025-09-15",
-                            "Yields": 4.09,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "EMN",
-                            "Name": "Eastman Chemical Company",
-                            "industry": "Specialty Chemicals",
-                            "Div_Date": "2025-09-15",
-                            "Yields": 4.78,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "EXR",
-                            "Name": "Extra Space Storage Inc.",
-                            "industry": "REIT - Industrial",
-                            "Div_Date": "2025-09-15",
-                            "Yields": 4.54,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "TROW",
-                            "Name": "T. Rowe Price Group, Inc.",
-                            "industry": "Asset Management",
-                            "Div_Date": "2025-09-15",
-                            "Yields": 4.69,
-                            "SNP100": "True",
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "DOC",
-                            "Name": "Healthpeak Properties, Inc.",
-                            "industry": "REIT - Healthcare Facilities",
-                            "Div_Date": "2025-09-19",
-                            "Yields": 6.87,
-                            "股息貴族": "False"
-                            },
-                            {
-                            "Ticker": "FRT",
-                            "Name": "Federal Realty Investment Trust",
-                            "industry": "REIT - Retail",
-                            "Div_Date": "2025-10-01",
-                            "Yields": 4.54,
-                            "股息貴族": "False"
-                            }
-                        ],
-                        "drops": [
-                            {
-                            "Ticker": "CNC",
-                            "Name": "Centene Corporation",
-                            "Industry": "Healthcare Plans",
-                            "最大跌幅": "48.08%",
-                            "SNP100": "True",
-                            "股市貴族": "False"
-                            },
-                            {
-                            "Ticker": "MOH",
-                            "Name": "Molina Healthcare, Inc.",
-                            "Industry": "Healthcare Plans",
-                            "最大跌幅": "43.05%",
-                            "SNP100": "True",
-                            "股市貴族": "False"
-                            },
-                            {
-                            "Ticker": "IT",
-                            "Name": "Gartner, Inc.",
-                            "Industry": "Information Technology Services",
-                            "最大跌幅": "42.74%",
-                            "SNP100": "True",
-                            "股市貴族": "True"
-                            },
-                            {
-                            "Ticker": "TTD",
-                            "Name": "The Trade Desk, Inc.",
-                            "Industry": "Advertising Agencies",
-                            "最大跌幅": "40.73%",
-                            "SNP100": "False",
-                            "股市貴族": "False"
-                            },
-                            {
-                            "Ticker": "LULU",
-                            "Name": "lululemon athletica inc.",
-                            "Industry": "Apparel Retail",
-                            "最大跌幅": "38.07%",
-                            "SNP100": "False",
-                            "股市貴族": "False"
-                            },
-                            {
-                            "Ticker": "CHTR",
-                            "Name": "Charter Communications, Inc.",
-                            "Industry": "Telecom Services",
-                            "最大跌幅": "33.63%",
-                            "SNP100": "False",
-                            "股市貴族": "False"
-                            }
-                        ],
-                        "alerts": [],
-                        "testingArea": []
-                    })
-                })
-                .then(res => res.json())
-                .then(data => console.log(data));
-            }
-
             setInterval(fetchData, 300000);
-            setInterval(updateNewestClose(activeTab), 300000);
-            setInterval(renderBoard(INDEX_LIST, "stock-tag-area-major"), 300000);
-            setInterval(renderBoard(SECTOR_LIST, "stock-tag-area-Sector"), 300000);
             
 
             // 安全轉義（避免把原文注入成 HTML）
@@ -2316,8 +1969,6 @@
 
             window.addEventListener('DOMContentLoaded', () => {
                 fetchData();
-                renderBoard(INDEX_LIST, "stock-tag-area-major");
-                renderBoard(SECTOR_LIST, "stock-tag-area-Sector");
             });
 
             function showStockTagArea(type) {
@@ -2359,7 +2010,6 @@
             document.addEventListener("DOMContentLoaded", function() {
                 // 綁定輸入框的 Enter 事件
                 document.getElementById("symbol-input").addEventListener("keydown", function (event) {
-                    console.log("OK")
                     if (event.key === "Enter") {
                     event.preventDefault(); // 避免觸發表單提交或頁面刷新
                     document.getElementById("search-btn").click(); // 模擬點擊按鈕
@@ -2434,8 +2084,6 @@
             <div class="flex-1 ml-2">
                 <!-- 小型頁籤 -->
                 <div id="stock-tag-tabs" class="flex space-x-2 mb-2">
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('major')" id="stock-tag-tab-major">OMNI</button>
-                    <button class="stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none" onclick="showStockTagArea('Sector')" id="stock-tag-tab-major">Sector</button>
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
                  <div id="tag-areas">
