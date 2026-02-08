@@ -106,29 +106,61 @@
                     
                     // 產生標籤
                     data[category].forEach(symbolItem => {
+                        console.log(symbolItem)
                         const tag = document.createElement('span');
+                        const ticker = symbolItem.Ticker || symbolItem.symbol; // 兼容不同欄位名
+                        let displayContent = ticker;
+                        const targetKeys = ["最大跌幅", "Yields", "RSI"];
                         tag.className = 'min-w-[120px] border-2 border-blue-200 rounded-xl p-3 bg-white shadow-sm hover:shadow-md hover:border-blue-500 transition-all cursor-pointer group text-base font-black text-blue-500 group-hover:text-blue-700 text-center tracking-tighter uppercase';
                         
                         // 資料有詳細內容可特別處理
                         if ( typeof symbolItem === "object" && symbolItem.Ticker) {
-                            tag.innerText = symbolItem.Ticker;
-                            tag.dataset.symbol = symbolItem.Ticker;
+                            // 檢查 symbolItem 所有的 Key
+                            Object.keys(symbolItem).forEach(key => {
+                                const val = symbolItem[key];
+                                if (val === undefined || val === null) return;
+
+                                const lowerKey = key.toLowerCase();
+
+                                // A. 特殊處理：current 與 target
+                                if (lowerKey.includes("current")) {
+                                    currentVal = val;
+                                } else if (lowerKey.includes("target")) {
+                                    targetVal = val;
+                                } 
+                                // B. 一般關鍵字處理
+                                else {
+                                    const isGeneralTarget = targetKeys.some(tk => lowerKey.includes(tk.toLowerCase()));
+                                    if (isGeneralTarget) {
+                                        displayContent += `\n${key}: ${val}`;
+                                    }
+                                }
+                            });
+
+                            if (symbolItem.current && symbolItem.target) {
+                                displayContent += `\n${currentVal} < ${targetVal}`;
+                            }
+                            
+                            tag.innerText = displayContent;
+                            tag.dataset.symbol = ticker;
+
 
                             if (symbolItem.股息貴族 || symbolItem.股市貴族){
                                 if (symbolItem.股息貴族 === "True" || symbolItem.股息貴族 === true) {
                                     if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
-                                        tag.className += " bg-yellow-300 text-white border-2 border-blue-800";
+                                        tag.className += " bg-amber-500 text-white border-red-800";
                                     }else{//是股息貴族但不是S&P100
-                                        tag.className += " bg-lime-300 text-white border-2 border-blue-800";
+                                        tag.className += " bg-emerald-500 text-white border-green-800";
                                     }
                                 } else if (symbolItem.股市貴族 === "True" || symbolItem.股市貴族 === true){
                                     if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
-                                        tag.className += " bg-yellow-300 text-white border-2 border-blue-800";
+                                        tag.className += " bg-amber-500 text-white border-red-800";
                                     }else{//是股市貴族但不是S&P100
-                                        tag.className += " bg-lime-300 text-white border-2 border-blue-800";
+                                        tag.className += " bg-emerald-500 text-white border-green-800";
                                     }
                                 }  else if (symbolItem.SNP100 && (symbolItem.SNP100 === "True" || symbolItem.SNP100 === true)) {
-                                    tag.className += " bg-sky-300 text-white border-2 border-blue-800";
+                                    //不是股息或股市貴族但依然是SNP100
+                                    tag.className += " bg-sky-500 text-white border-blue-800";
                                 }
                             }
                             
