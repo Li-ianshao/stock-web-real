@@ -86,7 +86,7 @@
                     if (!tagArea) {
                         // 自動建立區塊並增加頁籤
                         tagHeader = document.createElement("button");
-                        tagHeader.className = "stock-tag-tab px-3 py-1 rounded-t bg-gray-200 text-gray-600 font-semibold focus:outline-none";
+                        tagHeader.className = "px-8 py-3 text-xl font-bold text-white hover:bg-slate-700 rounded-xl transition-all duration-300 stockTagTab";
                         tagHeader.onclick = function() {
                             showStockTagArea(category);
                         };
@@ -95,7 +95,7 @@
 
                         tagArea = document.createElement('div');
                         tagArea.id = 'stock-tag-area-' + category;
-                        tagArea.className = `stock-tag-area flex flex-wrap gap-2 p-2 ${randomBg} rounded shadow`;
+                        tagArea.className = `stock-tag-area flex flex-wrap gap-3 p-4 bg-red-50/50 rounded-xl border border-red-100 w-full justify-center`;
                         tagArea.style = "display:none"
 
                         document.getElementById('stock-tag-tabs').appendChild(tagHeader);
@@ -107,7 +107,7 @@
                     // 產生標籤
                     data[category].forEach(symbolItem => {
                         const tag = document.createElement('span');
-                        tag.className = 'stock-tag cursor-move bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold shadow mr-2 mb-2 inline-block';
+                        tag.className = 'min-w-[120px] border-2 border-blue-200 rounded-xl p-3 bg-white shadow-sm hover:shadow-md hover:border-blue-500 transition-all cursor-pointer group text-base font-black text-blue-500 group-hover:text-blue-700 text-center tracking-tighter uppercase';
                         
                         // 資料有詳細內容可特別處理
                         if ( typeof symbolItem === "object" && symbolItem.Ticker) {
@@ -1978,14 +1978,14 @@
                 document.getElementById(`stock-tag-area-${type}`).style.display = 'flex';
 
                 // 先全部頁籤 tab 取消 active 樣式
-                document.querySelectorAll('.stock-tag-tab').forEach(btn => {
+                document.querySelectorAll('.stockTagTab').forEach(btn => {
                     btn.classList.remove('bg-white', 'text-gray-700', 'border-b-2', 'border-blue-500', 'font-semibold');
-                    btn.classList.add('bg-gray-200', 'text-gray-600');
+                    btn.classList.add('px-4', 'py-2', 'text-sm', 'font-medium', 'text-white', 'hover:bg-slate-700', 'rounded-lg', 'transition');
                 });
 
                 // 當前 tab 高亮
                 const tabBtn = document.getElementById(`stock-tag-tab-${type}`);
-                tabBtn.classList.remove('bg-gray-200', 'text-gray-600');
+                tabBtn.classList.remove('hover:bg-slate-700');
                 tabBtn.classList.add('bg-white', 'text-gray-700', 'border-b-2', 'border-blue-500', 'font-semibold');
             }
 
@@ -2064,10 +2064,8 @@
     <body class="p-6 font-sans bg-gray-100">
 
         <h1 class="text-2xl font-bold mb-4">股票分析平台</h1>
-
-        <!-- 股票代碼輸入列 + stock tag area 分頁 -->
-        <div class="flex items-start mb-6 space-x-3">
-            <!-- 股票輸入 + 按鈕 -->
+        <div class="flex items-start mb-12 space-x-3">
+        <!-- 股票輸入 + 按鈕 -->
             <div class="flex-shrink-0 flex items-center space-x-3">
                 <input id="symbol-input" type="text" placeholder="輸入股票代碼，如 AAPL"
                     class="border border-gray-300 p-3 rounded-lg text-lg w-80 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -2080,15 +2078,16 @@
                     送
                 </button> -->
             </div>
+        </div>
+        <!-- 股票代碼輸入列 + stock tag area 分頁 -->
+        <div class="flex items-start mb-12 space-x-3">
             <!-- stock tag 切換區（占據剩餘空間） -->
             <div class="flex-1 ml-2">
                 <!-- 小型頁籤 -->
-                <div id="stock-tag-tabs" class="flex space-x-2 mb-2">
+                <div id="stock-tag-tabs" class="flex flex-wrap justify-center items-center gap-4 mb-10 bg-slate-900 p-3 rounded-2xl shadow-2xl w-full max-w-5xl mx-auto">
                 </div>
                 <!-- 各 stock tag 區域（只顯示一個，其餘 hidden） -->
                  <div id="tag-areas">
-                    <div id="stock-tag-area-major" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-200 rounded shadow"></div>
-                    <div id="stock-tag-area-Sector" class="stock-tag-area flex flex-wrap gap-2 p-2 bg-blue-200 rounded shadow hidden"></div>
                     <div id="update-info" class="text-gray-500 mb-2"></div>
                  </div>
             </div>
