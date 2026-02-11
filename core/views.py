@@ -108,10 +108,11 @@ from django.shortcuts import render
 
 # 初始化 Client (API Key 放在這裡)  
 
-# 1. 初始化新版 Client 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
 
 def stock_analysis_view(request, symbol):
+    # 1. 初始化新版 Client 
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     symbol = symbol.upper()
     analysis_result = ""
 
