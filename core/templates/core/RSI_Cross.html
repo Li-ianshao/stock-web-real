@@ -106,7 +106,6 @@
                     
                     // 產生標籤
                     data[category].forEach(symbolItem => {
-                        console.log(symbolItem)
                         const tag = document.createElement('span');
                         const ticker = symbolItem.Ticker || symbolItem.symbol; // 兼容不同欄位名
                         let displayContent = ticker;
@@ -127,9 +126,10 @@
                                     currentVal = val;
                                 } else if (lowerKey.includes("target")) {
                                     targetVal = val;
-                                } 
-                                // B. 一般關鍵字處理
-                                else {
+                                } else if (lowerKey.includes("yields")) {
+                                    displayContent += `\n${key}: ${val} %`;
+                                } else {
+                                    // B. 一般關鍵字處理
                                     const isGeneralTarget = targetKeys.some(tk => lowerKey.includes(tk.toLowerCase()));
                                     if (isGeneralTarget) {
                                         displayContent += `\n${key}: ${val}`;
@@ -302,6 +302,42 @@
                         const priceData = data.price_data;
                         const dividends = data.dividends;
                         const content = document.getElementById('tab-content');
+                        // 1. 先從資料中計算加總
+                        const totalBuy = data.Form4_transactions
+                            .filter(s => s.transactionCode === 'P')
+                            .reduce((sum, s) => sum + (Math.abs(parseFloat(s.change)) || 0), 0);
+
+                        const totalSell = data.Form4_transactions
+                            .filter(s => s.transactionCode === 'S')
+                            .reduce((sum, s) => sum + (Math.abs(parseFloat(s.change)) || 0), 0);
+
+                        // 2. 直接將原本的 table 標籤替換成這個 HTML 字串
+                        const updatedHtml = `
+                            <div class="mt-4 mb-2">
+                                <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                    <h3 class="text-lg font-semibold text-gray-800">關係人交易</h3>
+                                    <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <div class="flex-1 bg-emerald-50 border border-emerald-100 p-4 rounded-2xl">
+                                        <p class="text-[10px] text-emerald-600 font-bold uppercase tracking-tight">Total Purchased</p>
+                                        <div class="flex items-baseline gap-1">
+                                            <span class="text-2xl font-black text-emerald-700">${totalBuy.toLocaleString()}</span>
+                                            <span class="text-[10px] text-emerald-600 font-medium">股</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex-1 bg-rose-50 border border-rose-100 p-4 rounded-2xl">
+                                        <p class="text-[10px] text-rose-600 font-bold uppercase tracking-tight">Total Sold</p>
+                                        <div class="flex items-baseline gap-1">
+                                            <span class="text-2xl font-black text-rose-700">${totalSell.toLocaleString()}</span>
+                                            <span class="text-[10px] text-rose-600 font-medium">股</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-[9px] text-slate-400 mt-2 italic">* 僅統計代碼 P (買進) 與 S (賣出) 之股份變動</p>
+                            </div>
+                        `;
                         const imgHTML = `
                         <h2 class="text-xl font-bold mb-2">${data.symbol} RSI 策略分析</h2>
                         <!-- 📄 公司描述區塊 -->
@@ -625,13 +661,13 @@
                                             </ul>
                                         </div>
                                         <div>
-                                            <span class="font-medium text-gray-600">殖利率(dividend_yield)：</span> ${ data.dividend_yield }
+                                            <span class="font-medium text-gray-600">殖利率(dividend_yield)：</span> ${ data.dividend_yield } %
                                             <div class="text-gray-400 mt-1">每年現金股息與股價的比率，反映配息吸引力。</div>
                                             <ul class="text-gray-400 list-disc list-inside">
-                                                <li>&gt;0.04（4%）高殖利率，適合存股</li>
-                                                <li>0.02～0.04 正常</li>
-                                                <li>&lt;0.02 偏低（成長型公司可能本就不發股息）</li>
-                                                <li>&gt;0.08 要小心，可能因股價大跌</li>
+                                                <li>&gt;4% 高殖利率，適合存股</li>
+                                                <li>2%～4% 正常</li>
+                                                <li>&lt;2% 偏低（成長型公司可能本就不發股息）</li>
+                                                <li>&gt;8% 要小心，可能因股價大跌</li>
                                             </ul>
                                         </div>
                                         <div>
@@ -642,6 +678,10 @@
                                                 <li>&gt;1 超額配息，可能危險</li>
                                                 <li>&lt;0.2 保守（多留現金）</li>
                                             </ul>
+                                        </div>
+                                        <div class="mb-8 bg-white rounded-xl shadow p-4">
+                                            <img src="data:image/png;base64,${data.div_chart}" class="max-w-full border rounded shadow" />
+                                            <h2 class="text-xl font-bold mb-2">十年配息統計圖</h2>
                                         </div>
                                     </div>
                                 </div>
@@ -692,117 +732,8 @@
                                 </div>
                         </div>
                         <!-- 📄 Form 4 區塊 -->
-                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
-                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
-                                <h3 class="text-lg font-semibold text-gray-800">Form 4 區塊</h3>
-                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
-                            </div>
-                            <table class="w-full text-sm border-collapse">
-                            <caption class="text-left mb-2">SEC Form 4 常見 Transaction Codes 對照表（非完整，實際以 SEC 說明文件與表單註解為準）</caption>
-                            <thead class="bg-gray-50">
-                                <tr>
-                                <th class="px-3 py-2 border">代碼</th>
-                                <th class="px-3 py-2 border">中文名稱</th>
-                                <th class="px-3 py-2 border">英文</th>
-                                <th class="px-3 py-2 border">說明</th>
-                                <th class="px-3 py-2 border">投資解讀</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">P</td>
-                                <td class="px-3 py-2 border">買進（公開市場/私下）</td>
-                                <td class="px-3 py-2 border">Purchase</td>
-                                <td class="px-3 py-2 border">內部人在市場或私下協議中直接買入公司股票。</td>
-                                <td class="px-3 py-2 border">通常被視為「看多訊號」，但仍需搭配金額、持續性與角色（如 CEO/CFO）。</td>
-                                </tr>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">S</td>
-                                <td class="px-3 py-2 border">賣出（公開市場/私下）</td>
-                                <td class="px-3 py-2 border">Sale</td>
-                                <td class="px-3 py-2 border">內部人在市場或私下協議中賣出公司股票。</td>
-                                <td class="px-3 py-2 border">未必是利空；可能為資產配置或個人現金需求，需看規模與是否連續賣出。</td>
-                                </tr>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">A</td>
-                                <td class="px-3 py-2 border">授予/獎勵</td>
-                                <td class="px-3 py-2 border">Grant, Award, or Other Acquisition</td>
-                                <td class="px-3 py-2 border">公司依薪酬計畫發放的 RSU/限制股/獎勵股等取得。</td>
-                                <td class="px-3 py-2 border">屬於薪酬性質，通常不代表主觀看多或看空。</td>
-                                </tr>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">M</td>
-                                <td class="px-3 py-2 border">期權行使/衍生品轉換</td>
-                                <td class="px-3 py-2 border">Option Exercise / Conversion of Derivative Security</td>
-                                <td class="px-3 py-2 border">將員工期權、權證等衍生性商品轉換為普通股。</td>
-                                <td class="px-3 py-2 border">多屬薪酬或既定合約安排；單看 M 不等於主動買進。</td>
-                                </tr>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">F</td>
-                                <td class="px-3 py-2 border">代扣稅/以股繳稅</td>
-                                <td class="px-3 py-2 border">Payment of Tax Liability by Withholding/Delivering Shares</td>
-                                <td class="px-3 py-2 border">RSU 歸屬或發放時，為繳稅而由公司扣回部分股份。</td>
-                                <td class="px-3 py-2 border">行政動作，非主觀賣股；不宜解讀為看空。</td>
-                                </tr>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">G</td>
-                                <td class="px-3 py-2 border">贈與</td>
-                                <td class="px-3 py-2 border">Gift</td>
-                                <td class="px-3 py-2 border">無對價移轉（如贈與家人或信託）。</td>
-                                <td class="px-3 py-2 border">通常與投資觀點無直接正負向含義。</td>
-                                </tr>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">C</td>
-                                <td class="px-3 py-2 border">轉換</td>
-                                <td class="px-3 py-2 border">Conversion</td>
-                                <td class="px-3 py-2 border">將可轉換證券（如可轉債、優先股）轉為普通股。</td>
-                                <td class="px-3 py-2 border">結構性動作；需結合是否後續賣出來判斷。</td>
-                                </tr>
-                                <tr>
-                                <td class="px-3 py-2 border font-medium">J</td>
-                                <td class="px-3 py-2 border">其他（見註解）</td>
-                                <td class="px-3 py-2 border">Other (explain in footnote)</td>
-                                <td class="px-3 py-2 border">不屬於上述類別的特殊交易，通常會在備註/註解中說明細節。</td>
-                                <td class="px-3 py-2 border">務必閱讀該 Form 4 的「Explanation of Responses」再做解讀。</td>
-                                </tr>
-                            </tbody>
-                            </table>
-                            <p class="text-xs mt-2">
-                            備註：本表僅列常見代碼；實務上還有其他代碼與細分情境。解讀時請同時參考該次申報的表單欄位（如 Table I/II）與最下方的說明文字（Explanation of Responses）。
-                            </p>
+                        ${updatedHtml}
 
-                            <div class="font-medium mb-1">Top institutional holders</div>
-                                <div class="overflow-x-auto">
-                                <table class="min-w-full text-left border">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-3 py-2 border">symbol</th>
-                                            <th class="px-3 py-2 border">name</th>
-                                            <th class="px-3 py-2 border">transaction</th>
-                                            <th class="px-3 py-2 border">share</th>
-                                            <th class="px-3 py-2 border">change</th>
-                                            <th class="px-3 py-2 border">price</th>
-                                            <th class="px-3 py-2 border">transactionDate</th>
-                                            <th class="px-3 py-2 border">filingDate</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                    ${data.Form4_transactions.map(s => `
-                                        <tr>
-                                            <td class="px-3 py-2 border">${s.symbol ?? ''}</td>
-                                            <td class="px-3 py-2 border">${s.name ?? ''}</td>
-                                            <td class="px-3 py-2 border">${s.transactionCode ?? ''}</td>
-                                            <td class="px-3 py-2 border">${s.share ?? ''}</td>
-                                            <td class="px-3 py-2 border">${s.change ?? ''}</td>
-                                            <td class="px-3 py-2 border">${s.transactionPrice ?? ''}</td>
-                                            <td class="px-3 py-2 border">${s.transactionDate ?? ''}</td>
-                                            <td class="px-3 py-2 border">${s.filingDate ?? ''}</td>
-                                        </tr>
-                                    `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
                         <!-- 消息面分析區塊 -->
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
                             <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
@@ -2001,6 +1932,7 @@
 
             window.addEventListener('DOMContentLoaded', () => {
                 fetchData();
+                document.getElementById('ai-chat-button').addEventListener('click', runStockAnalysis);
             });
 
             function showStockTagArea(type) {
@@ -2048,25 +1980,92 @@
                     }
                 });
             })
+
+
+            function runStockAnalysis() {
+                // 1. 抓取 UI 元素
+                const modal = document.getElementById('ai-modal');
+                const aiContent = document.getElementById('ai-content');
+                const chartImg = document.getElementById('dividend-chart-img');
+                const chartPlaceholder = document.getElementById('chart-placeholder');
+                const dividendSection = document.getElementById('dividend-section');
+
+                // 2. 找出目前 active 的股票代碼 (由您的 div id 決定)
+                const activeArea = document.querySelector('.tab.active');
+                if (!activeArea) {
+                    alert("請先選擇一個股票分頁！");
+                    return;
+                }
+                const symbol = activeArea.id.replace('tab-', '');
+
+                // 3. UI 預備狀態：開啟對話框並顯示讀取中
+                if (modal.classList.contains('hidden')) {
+                    toggleAI(); // 使用您之前的展開動畫函式
+                }
+                aiContent.innerHTML = `
+                    <div class="flex items-center gap-2 text-blue-600 font-bold">
+                        <span class="animate-ping h-2 w-2 rounded-full bg-blue-400"></span>
+                        正在深度診斷 ${symbol} ...
+                    </div>
+                    <p class="text-xs text-slate-400 mt-2">正在同步生成十年配息統計圖表...</p>
+                `;
+                console.log(symbol)
+                // 4. 發送請求至 Django API
+                fetch(`/core/api/stock-analysis/${symbol}/`)
+                    .then(response => {
+                        console.log(response)
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log(data)
+                        // A. 更新 AI 文字分析 (使用淡藍色對話框)
+                        aiContent.innerText = data.analysis_result;
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        aiContent.innerHTML = `<p class="text-red-500">❌ 分析失敗：${error.message}</p>`;
+                    });
+            }
+
+            function toggleAI() {
+                const modal = document.getElementById('ai-modal');
+                const content = document.getElementById('ai-content');
+                
+                if (modal.classList.contains('hidden')) {
+                    // 展開動畫
+                    modal.classList.remove('hidden');
+                    void modal.offsetWidth; 
+                    modal.classList.add('modal-show');
+                } else {
+                    // 關閉對話框
+                    modal.classList.remove('modal-show');
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                    }, 400);
+                }
+            }
+
+            
             
             
 
         </script>
         <style >
             .tab {
-            min-width: 75px;
-            margin-right: 2px;
-            background: #d1d1d1;
-            color: #616161;
-            font-size: 15px;
-            border: none;
-            border-radius: 16px 16px 0 0;
-            cursor: pointer;
-            position: relative;
-            top: 8px;
-            box-shadow: none;
-            transition: background 0.2s, color 0.2s, top 0.2s;
-            z-index: 1;
+                min-width: 75px;
+                margin-right: 2px;
+                background: #d1d1d1;
+                color: #616161;
+                font-size: 15px;
+                border: none;
+                border-radius: 16px 16px 0 0;
+                cursor: pointer;
+                position: relative;
+                top: 8px;
+                box-shadow: none;
+                transition: background 0.2s, color 0.2s, top 0.2s;
+                z-index: 1;
             }
 
             .tabBottom{
@@ -2074,28 +2073,77 @@
             }
 
             .tab.active {
-            background: #fff;
-            color: #222;
-            font-weight: 500;
-            box-shadow: 0 4px 18px 0 rgba(60, 60, 60, 0.09);
-            top: 0;
-            z-index: 2;
-            border-bottom: 2.5px solid #fff;
+                background: #fff;
+                color: #222;
+                font-weight: 500;
+                box-shadow: 0 4px 18px 0 rgba(60, 60, 60, 0.09);
+                top: 0;
+                z-index: 2;
+                border-bottom: 2.5px solid #fff;
             }
 
             .tab:not(.active):hover {
-            background: #e0e0e0;
-            color: #444;
+                background: #e0e0e0;
+                color: #444;
             }
 
             .tab:last-child {
-            margin-right: 0;
+                margin-right: 0;
+            }
+
+            /* 1. 溫和的展開動畫 */
+            .modal-show {
+                display: flex !important;
+                animation: simpleSlideUp 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            }
+
+            @keyframes simpleSlideUp {
+                0% { transform: translateY(20px); opacity: 0; }
+                100% { transform: translateY(0); opacity: 1; }
+            }
+
+            /* 2. 內容字體與換行處理 */
+            #ai-content {
+                white-space: pre-line;
+                font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             }
         </style>
     </head>
     <body class="p-6 font-sans bg-gray-100">
 
         <h1 class="text-2xl font-bold mb-4">股票分析平台</h1>
+        <div class="fixed bottom-6 right-6 z-50">
+            <button id="ai-chat-button" class="group relative flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] hover:shadow-[0_0_30px_rgba(37,99,235,0.8)] hover:bg-blue-500 transition-all duration-300 transform hover:scale-110 active:scale-95 focus:outline-none">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 transition-transform group-hover:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+
+                <span class="absolute right-20 px-3 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl border border-slate-700">
+                    需要 AI 個股分析嗎？
+                </span>
+            </button>
+        </div>
+
+        <div id="ai-modal" 
+            class="fixed bottom-24 right-10 w-80 md:w-96 z-50 hidden flex-col transition-all duration-500 ease-out transform translate-y-10 opacity-0">
+            
+            <div class="relative bg-blue-50/95 backdrop-blur-md p-5 rounded-[28px] shadow-2xl border border-blue-100 flex flex-col justify-center">
+                
+                <div class="flex justify-between items-center mb-3 border-b border-blue-200/50 pb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                        <span class="text-[11px] font-bold text-blue-500 tracking-widest uppercase">AI Analysis Report</span>
+                    </div>
+                    <button onclick="toggleAI()" class="text-blue-300 hover:text-blue-500 transition text-lg">✕</button>
+                </div>
+
+                <div id="ai-content" class="text-[15px] text-slate-700 leading-relaxed font-medium px-1">
+                    <p class="italic text-slate-400">請點擊下方股票標籤，我將為您生成即時分析報告...</p>
+                </div>
+            </div>
+        </div>
+
         <div class="flex items-start mb-12 space-x-3">
         <!-- 股票輸入 + 按鈕 -->
             <div class="flex-shrink-0 flex items-center space-x-3">
@@ -2147,6 +2195,46 @@
                 <p class="text-gray-500">請新增並點選股票頁籤</p>
             </div>
         </div>
+
+        <footer class="mt-20 border-t border-slate-800 bg-slate-900 text-slate-400 py-10 px-6">
+            <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                
+                <div class="text-center md:text-left">
+                    <h4 class="text-white font-black text-lg tracking-tight mb-1">
+                        量能分析系統 <span class="text-blue-500">v2.0</span>
+                    </h4>
+                    <p class="text-sm">
+                        Developed by <span class="text-slate-200 font-bold">Li Yan Shao</span> 
+                        <span class="mx-2 text-slate-700">|</span> 
+                        MS in MIS, University of Pittsburgh
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-2">
+                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Django</span>
+                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Gemini 2.0</span>
+                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Tailwind CSS</span>
+                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Angular Legacy</span>
+                </div>
+
+                <div class="flex items-center gap-4 text-sm">
+                    <div class="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        </svg>
+                        <span>Houston, TX</span>
+                    </div>
+                    <a href="https://github.com/Li-ianshao" class="hover:text-blue-400 transition-colors">GitHub</a>
+                    <a href="https://www.linkedin.com/in/li-yan-shao-78339424b" class="hover:text-blue-400 transition-colors">LinkedIn</a>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-slate-800/50 text-center text-[11px] opacity-50">
+                &copy; 2026 Stock Analysis System. All rights reserved. 
+                <br class="md:hidden"> 
+                系統數據僅供參考，不構成投資建議。
+            </div>
+        </footer>
 
     </body>
 </html>

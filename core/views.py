@@ -30,6 +30,7 @@ ch_font = FontProperties(fname='C:/Windows/Fonts/msjh.ttc')  # Windows 微軟正
 import re
 import time
 import requests
+from core.DivindendChartGenerator import get_dividend_chart_base64
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
@@ -100,6 +101,51 @@ def _check_key():
     if not api_key:
         raise RuntimeError("請先設定環境變數 FINNHUB_API_KEY")
     return api_key
+
+# 1. 設定您的 Gemini API Key 
+from google import genai  # 注意匯入方式變了
+from django.shortcuts import render
+
+# 初始化 Client (API Key 放在這裡)
+
+# 1. 初始化新版 Client 
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+def stock_analysis_view(request, symbol):
+    symbol = symbol.upper()
+    analysis_result = ""
+
+    # 建立一個針對 AI 的精簡 Prompt
+    # 2026 年的 Gemini 2.0 支援強大的工具調用或內網搜尋，能自行掌握大方向
+    prompt = f"""
+    請針對股票代碼 {symbol} 進行全方位診斷。
+    你應該分析其：
+    1. 當前市場定位與近期基本面表現。
+    2. 技術面走勢預測（結合當前大盤趨勢）。
+    3. 投資風險評估。
+    請直接給出重點摘要，並以繁體中文回答，維持專業分析師的口吻。
+    """
+
+    try:
+        # 呼叫 Gemini 2.0 Flash
+        response = client.models.generate_content(
+            model='gemini-2.0-flash', 
+            contents=prompt
+        )
+        analysis_result = response.text
+        
+    except Exception as e:
+        if "429" in str(e):
+            analysis_result = "⚠️ 系統繁忙（流量限制），請稍候片刻再試。"
+        else:
+            analysis_result = f"❌ AI 分析暫時無法使用: {str(e)}"
+
+    # 改為回傳 JsonResponse，對接前端的淡藍色對話框
+    return JsonResponse({
+        'status': 'success',
+        'ticker': symbol,
+        'analysis_result': analysis_result
+    })
 
 def get_form4_data(symbol: str, from_date: str = None, to_date: str = None, with_sentiment: bool = False):
     """
@@ -604,10 +650,14 @@ def stock_api(request, symbol):
     # print(price_data)
     
     Form4_transactions = Form4.to_dict(orient="records") if not Form4.empty else []
+
+    # 抓取十年配息資料並繪製成統計表
+    div_chart = get_dividend_chart_base64(symbol)
     
 
     return JsonResponse({
         "symbol": symbol,
+        'div_chart': div_chart,
         'heatmap_goal': img_base64_heat_goal,
         'heatmap_goal_detail': heat_goal_detail,
         'Form4_transactions': Form4_transactions,
