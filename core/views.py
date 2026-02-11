@@ -103,7 +103,7 @@ def _check_key():
     return api_key
 
 # 1. 設定您的 Gemini API Key 
-from google import genai  # 注意匯入方式變了
+from google import genai  #免費版
 from django.shortcuts import render
 
 # 初始化 Client (API Key 放在這裡)
