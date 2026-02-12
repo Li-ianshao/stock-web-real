@@ -259,6 +259,7 @@
                 // 內容 div
                 const contentDiv = document.getElementById('tab-content');
                 activeTab = symbol;
+                
 
                 if (stockContentDict[symbol]) {
                     // 有快取就直接顯示
@@ -270,6 +271,8 @@
                     drawMACDChart(priceData);
 
                     drawRSIChart(priceData);
+
+                    drawDividendChart(data.div_chart)
 
                     drawVolumeChart(priceData);
 
@@ -679,9 +682,21 @@
                                                 <li>&lt;0.2 保守（多留現金）</li>
                                             </ul>
                                         </div>
-                                        <div class="mb-8 bg-white rounded-xl shadow p-4">
-                                            <img src="data:image/png;base64,${data.div_chart}" class="max-w-full border rounded shadow" />
-                                            <h2 class="text-xl font-bold mb-2">十年配息統計圖</h2>
+                                    </div>
+                                </div>
+                                <!-- 📈 DIV 圖區塊 -->
+                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                        <div>
+                                        <h3 class="text-base font-semibold text-gray-800">📈 十年配息統計圖</h3>
+                                        <p class="text-sm text-gray-500">確認該股配息趨勢</p>
+                                        </div>
+                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                    </div>
+
+                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                        <div id="chart-dividend" class="relative w-full h-[700px] bg-white">
+                                            <div id="div-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
                                         </div>
                                     </div>
                                 </div>
@@ -774,10 +789,14 @@
                             contentDiv.innerHTML = content.innerHTML;
                         }
 
+                        fetchNewestClose(activeTab)
+
                         // 呼叫畫圖
                         drawMACDChart(priceData);
 
                         drawRSIChart(priceData);
+
+                        drawDividendChart(data.div_chart)
 
                         drawVolumeChart(priceData);
 
@@ -806,6 +825,23 @@
                     });
                 }
                 
+            }
+
+            function fetchNewestClose (symbol) {
+                console.log(symbol)
+                fetch(`/core/api/stock-price/${symbol}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.current_price) {
+                        // 更新頁面上的價格標籤
+                        document.getElementById(`price-${symbol}`).innerHTML = `$${data.current_price}`;
+                        
+                        // 根據漲跌調整顏色 (Tailwind CSS 寫法)
+                        const priceTag = document.getElementById(`priceChange-${symbol}`);
+                        priceTag.innerText = `${data.change} (${data.change_percent})`;
+                        priceTag.className = parseFloat(data.change) >= 0 ? 'text-emerald-500' : 'text-rose-500';
+                    }
+                });
             }
 
 
@@ -843,6 +879,8 @@
             }
 
             setInterval(fetchData, 300000);
+            console.log(activeTab)
+            setInterval(fetchNewestClose(activeTab), 50000);
             
 
             // 安全轉義（避免把原文注入成 HTML）
@@ -1155,6 +1193,7 @@
                     //redrawSelection();
                 }
 
+
                 function getPointer(event, svgNode) {
                     // 支援滑鼠、觸控
                     if (event.type && event.type.startsWith('touch')) {
@@ -1342,6 +1381,8 @@
             }
 
             function drawVolumeChart(data) {
+                console.log("drawVolumeChart")
+                console.log(data)
                 const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
                 const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
                 const margin = { top: 20, right: 40, bottom: 30, left: 50};
@@ -1626,6 +1667,133 @@
                     box.innerHTML = `
                         <div><b>${d3.timeFormat("%Y-%m-%d")(d.date)}</b></div>
                         <div>RSI: ${d.rsi.toFixed(2)}</div>
+                    `;
+                    // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
+                    box.style.left = `${leftPos+40}px`;
+                    box.style.top = `${my + offset-5}px`;
+                    box.style.position = "absolute";
+                    box.style.pointerEvents = "none";  // 建議加這行避免擋到滑鼠
+                    box.classList.remove("hidden");
+                }
+            }
+
+            /**
+             * 使用 D3.js 繪製長條圖 (修正 Height Error)
+             */
+            function drawDividendChart(data) {
+                const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+                const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+                const margin = { top: 20, right: 40, bottom: 30, left: 50};
+                    width = baseW;
+                    height = 600 - margin.top - margin.bottom;
+                const svg = d3.select("#chart-dividend")
+                    .append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "auto")
+                    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                    .attr("preserveAspectRatio", "none")
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`)
+
+                
+                const x = d3.scaleBand()
+                    .domain(data.map(d => d.date))
+                    .range([0, width])
+                    .padding(0.2);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(data, d => d.amount)])
+                    .nice()
+                    .range([height, 0]);
+
+                // X軸 & Y軸
+                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
+                svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(
+                        d3.axisBottom(x)
+                        .tickValues(
+                            x.domain().filter((d, i, arr) => {
+                            const n = arr.length;
+                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                            })
+                        )
+                        .tickFormat(d => d)
+                    );
+                svg.append("g")
+                    .call(d3.axisLeft(y).tickFormat(d3.format(".2s")));// 2 位數 + 縮寫（K/M/B）
+
+                svg.selectAll("rect")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("x", d => x(d.date))
+                    .attr("y", d => y(d.amount))
+                    .attr("width", x.bandwidth())
+                    .attr("height", d => height - y(d.amount))
+                    .attr("fill", "#4a90e2");
+
+                // 十字線共用邏輯（重複使用）
+                const crosshairV = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                const crosshairH = svg.append("line")
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3 3")
+                    .style("display", "none");
+
+                svg.append("rect")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("fill", "none")
+                    .attr("pointer-events", "all")
+                    .on("mousemove", handleMove)
+                    .on("touchmove", handleMove)
+                    .on("click", handleMove);
+
+                function handleMove(event) {
+                    const [mx, my] = d3.pointer(event, svg.node());
+                    const bisectDate = d3.bisector(d => d.date).left;
+                    const xDate = x.domain()[Math.floor(mx / x.step())];
+                    const idx = bisectDate(data, xDate);
+                    const d = data[idx];
+
+                    if (!d || !d.date) return;
+
+                    const cx = x(d.date) + x.bandwidth() / 2;
+                    const cy = y(d.amount);
+
+                    crosshairV
+                        .attr("x1", cx)
+                        .attr("x2", cx)
+                        .attr("y1", 0)
+                        .attr("y2", height)
+                        .style("display", "block");
+
+                    crosshairH
+                        .attr("x1", 0)
+                        .attr("x2", width)
+                        .attr("y1", cy)
+                        .attr("y2", cy)
+                        .style("display", "block");
+
+                    const box = document.getElementById("div-tooltip");
+                    const boxWidth = 110;  // 你設定的 tooltip 寬度
+                    const offset = 10;
+
+                    const svgRect = svg.node().getBoundingClientRect();
+
+                    // 讓 tooltip 出現在滑鼠左側（靠左邊）
+                    const leftPos = Math.max(0, mx - boxWidth - offset);  // 不會超出左邊界
+
+                    
+                    box.innerHTML = `
+                        <div><b>${d.date}</b></div>
+                        <div>Dividend: ${d.amount.toFixed(2)}</div>
                     `;
                     // ✅ 🔽 這段就是讓 tooltip 跟著滑鼠或手指移動
                     box.style.left = `${leftPos+40}px`;
@@ -2196,12 +2364,12 @@
             </div>
         </div>
 
-        <footer class="mt-20 border-t border-slate-800 bg-slate-900 text-slate-400 py-10 px-6">
+        <footer class="mt-20 border-t border-slate-800 bg-slate-900 text-slate-400 py-6 px-6">
             <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
                 
                 <div class="text-center md:text-left">
                     <h4 class="text-white font-black text-lg tracking-tight mb-1">
-                        量能分析系統 <span class="text-blue-500">v2.0</span>
+                        股票分析系統 <span class="text-blue-500">v2.0</span>
                     </h4>
                     <p class="text-sm">
                         Developed by <span class="text-slate-200 font-bold">Li Yan Shao</span> 
@@ -2210,12 +2378,15 @@
                     </p>
                 </div>
 
-                <div class="flex flex-wrap justify-center gap-2">
-                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Django</span>
-                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Gemini 2.0</span>
-                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Tailwind CSS</span>
-                    <span class="px-2 py-1 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">Angular Legacy</span>
+                <div class="flex flex-col gap-2">
+                <span class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Powered By Tech Stack</span>
+                <div class="flex flex-wrap gap-2">
+                    <span class="px-2 py-1 bg-slate-800 text-slate-300 rounded text-xs border border-slate-700">Django 5.0</span>
+                    <span class="px-2 py-1 bg-blue-900/30 text-blue-400 rounded text-xs border border-blue-800/50">Gemini 2.0 AI</span>
+                    <span class="px-2 py-1 bg-cyan-900/30 text-cyan-400 rounded text-xs border border-cyan-800/50">Tailwind CSS</span>
+                    <span class="px-2 py-1 bg-orange-900/30 text-orange-400 rounded text-xs border border-orange-800/50">D3.js Visualization</span>
                 </div>
+            </div>
 
                 <div class="flex items-center gap-4 text-sm">
                     <div class="flex items-center gap-1">

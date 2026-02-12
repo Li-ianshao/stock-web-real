@@ -8,7 +8,7 @@ import pandas as pd
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 import ta
-from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles, fetch_historical_data, getData, get_sp500_tickers
+from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles, fetch_historical_data, getData, get_sp500_tickers, get_latest_stock_price
 from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks, get_stock_data_by_symbol, calculate_bbands, calculate_rsi, calculate_macd
 from core.constants import load_sp500_symbols, TEST_SYMBOLS
 from django.shortcuts import redirect
@@ -59,8 +59,19 @@ AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
 
 
 
-
 latest_stock_data = None
+
+
+def stock_price_api(request, symbol):
+    """
+    提供給前端呼叫的 API View
+    """
+    price_data = get_latest_stock_price(symbol)
+    
+    if price_data:
+        return JsonResponse(price_data)
+    else:
+        return JsonResponse({"status": "error", "message": "無法獲取股價"}, status=400)
 
 @csrf_exempt
 def stockdata_api(request):

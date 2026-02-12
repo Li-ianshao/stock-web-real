@@ -76,6 +76,38 @@ def get_sp500_tickers():
     tickers = [t.replace('.', '-') for t in tickers]
     return tickers
 
+
+def get_latest_stock_price(symbol):
+    """
+    抓取指定股票的今日最新價格與漲跌資訊
+    """
+    try:
+        ticker = yf.Ticker(symbol)
+        
+        # 使用 history 抓取最近兩天的資料，以計算漲跌
+        data = ticker.history(period="2d")
+        
+        if data.empty:
+            return {"error": "找不到股票資料"}
+
+        # 取得最新一筆價格 (今日) 與前一筆價格 (昨日)
+        latest_price = data['Close'].iloc[-1]
+        prev_price = data['Close'].iloc[-2]
+        
+        change = latest_price - prev_price
+        change_percent = (change / prev_price) * 100
+
+        return {
+            "symbol": symbol.upper(),
+            "current_price": round(latest_price, 2),
+            "change": round(change, 2),
+            "change_percent": f"{change_percent:.2f}%",
+            "currency": "USD"
+        }
+    except Exception as e:
+        print(f"Error fetching {symbol}: {e}")
+        return None
+
 def getData(ticker_list):
     data = yf.download(
         tickers = ticker_list,
