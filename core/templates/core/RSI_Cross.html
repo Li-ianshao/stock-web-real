@@ -305,6 +305,7 @@
                     fetch(`/core/api/stock/${symbol}/`)
                     .then(res => res.json())
                     .then(data => {
+                        console.log(data.institutional_holders);
                         const priceData = data.price_data;
                         const dividends = data.dividends;
                         const content = document.getElementById('tab-content');
@@ -711,43 +712,16 @@
                                 <h3 class="text-lg font-semibold text-gray-800">法人持股描述區塊</h3>
                                 <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
                             </div>
-                            <div id="holders-area" class="text-sm">
-                                <div class="mb-3">
-                                    <div>Institutional ownership: <b>${data.institution_overview.institution_percent ?? 'N/A'}%</b></div>
-                                    <div>Insider ownership: <b>${data.institution_overview.insider_percent ?? 'N/A'}%</b></div>
-                                </div>    
-                            </div>
-                            <div class="mb-3">
-                                <div class="font-medium mb-1">Major holders</div>
-                                <ul class="list-disc list-inside text-gray-700">
-                                    ${data.major_holders.map(m => `<li><span class="text-gray-500">${m.label}：</span>${m.value}</li>`).join('')}
-                                </ul>
-                            </div>
-                            <div class="font-medium mb-1">Top institutional holders</div>
-                                <div class="overflow-x-auto">
-                                <table class="min-w-full text-left border">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-3 py-2 border">Holder</th>
-                                            <th class="px-3 py-2 border">Shares</th>
-                                            <th class="px-3 py-2 border">% Out</th>
-                                            <th class="px-3 py-2 border">Value (USD)</th>
-                                            <th class="px-3 py-2 border">Date reported</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                    ${data.institutional_holders.map(h => `
-                                        <tr>
-                                            <td class="px-3 py-2 border">${h.holder ?? ''}</td>
-                                            <td class="px-3 py-2 border">${h.shares?.toLocaleString?.('en-US') ?? ''}</td>
-                                            <td class="px-3 py-2 border">${(h.percent_out ?? '') + (h.percent_out != null ? '%' : '')}</td>
-                                            <td class="px-3 py-2 border">${h.value?.toLocaleString?.('en-US') ?? ''}</td>
-                                            <td class="px-3 py-2 border">${h.date_reported ?? ''}</td>
-                                        </tr>
-                                    `).join('')}
-                                    </tbody>
-                                </table>
+                            <div id="ownership-section" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mt-6">
+                                <div class="flex flex-col md:flex-row items-center">
+                                    <div id="ownership-chart-container" class="w-full md:w-1/2"></div>
+                                    
+                                    <div class="w-full md:w-1/2 mt-4 md:mt-0 space-y-2">
+                                        <div id="ownership-legend" class="grid grid-cols-1 gap-2">
+                                            </div>
+                                    </div>
                                 </div>
+                            </div>
                         </div>
                         <!-- 📄 Form 4 區塊 -->
                         ${updatedHtml}
@@ -802,6 +776,7 @@
 
                         drawDividendChart(data.div_chart)
                         
+                        renderOwnershipPieChart(data.institutional_holders)
 
                         drawVolumeChart(priceData);
 
@@ -1805,6 +1780,105 @@
                 }
             }
 
+            /**
+             * 使用 D3.js 繪製法人持股圓餅圖
+             * @param {Array} holders - 格式如 [{Holder: 'Vanguard', Shares: 26400836}, ...]
+             */
+            function renderOwnershipPieChart(data) {
+                // 1. 設定畫布尺寸
+                const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
+                const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
+                const margin = { top: 20, right: 40, bottom: 30, left: 50};
+                    width = baseW;
+                    height = 600 //- margin.top - margin.bottom;
+                const radius = Math.min(width, height) / 2 - 40;
+
+                
+                // const svg = d3.select("#chart-dividend")
+                //     .append("svg")
+                //     .attr("width", "100%")
+                //     .attr("height", "auto")
+                //     .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                //     .attr("preserveAspectRatio", "none")
+                //     .append("g")
+                //     .attr("transform", `translate(${margin.left},${margin.top})`)
+
+                
+                const container = d3.select("#ownership-chart-container");
+                container.selectAll("*").remove();
+
+                const svg = container.append("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                    .append("g")
+                    .attr("transform", `translate(${width / 2}, ${height / 2})`);
+
+                // 2. 顏色設定 (採用金融專業深藍色調)
+                const color = d3.scaleOrdinal()
+                    .domain(data.map(d => d.holder))
+                    .range(d3.schemeBlues[9].reverse()); 
+
+                // 3. 準備圓餅圖數據與弧度定義
+                const pie = d3.pie()
+                    .sort(null)
+                    .value(d => d.shares);
+
+                const arc = d3.arc()
+                    .innerRadius(radius * 0.6) // 甜甜圈內徑
+                    .outerRadius(radius);
+
+                const hoverArc = d3.arc()
+                    .innerRadius(radius * 0.6)
+                    .outerRadius(radius * 1.05); // 懸停時稍微放大
+
+                // 4. 繪製區塊
+                const slices = svg.selectAll("path")
+                    .data(pie(data))
+                    .enter()
+                    .append("path")
+                    .attr("d", arc)
+                    .attr("fill", d => color(d.data.holder))
+                    .attr("stroke", "white")
+                    .style("stroke-width", "2px")
+                    .style("cursor", "pointer");
+
+                // 5. 加入動態進場動畫
+                slices.transition()
+                    .duration(1000)
+                    .attrTween("d", function(d) {
+                        const i = d3.interpolate({startAngle: 0, endAngle: 0}, d);
+                        return t => arc(i(t));
+                    });
+
+                // 6. 互動效果：顯示 Tooltip 或數值
+                slices.on("mouseenter", function(event, d) {
+                    d3.select(this).transition().duration(200).attr("d", hoverArc);
+                    
+                    // 顯示在圓心位置
+                    svg.append("text")
+                        .attr("class", "pie-center-text")
+                        .attr("text-anchor", "middle")
+                        .attr("dy", "-0.2em") // 稍微往上提一點
+                        .style("font-size", "18px") // 👈 這裡調大
+                        .style("font-weight", "900") // 使用極粗體增加專業感
+                        .style("fill", "#1e293b") // 使用深色字體
+                        .text(d.data.holder);
+                        
+                    svg.append("text")
+                        .attr("class", "pie-center-text")
+                        .attr("text-anchor", "middle")
+                        .attr("dy", "1.5em") // 增加垂直間距，避免文字擠在一起
+                        .style("font-size", "14px") // 👈 同步調大
+                        .style("fill", "#64748b") // 使用灰藍色
+                        .text(d.data.shares.toLocaleString() + " Shares");
+                })
+                .on("mouseleave", function() {
+                    d3.select(this).transition().duration(200).attr("d", arc);
+                    svg.selectAll(".pie-center-text").remove();
+                });
+            }
+
             function drawMACDChart(data) {
                 const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
                 const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
@@ -2273,6 +2347,20 @@
                 white-space: pre-line;
                 font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             }
+
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 6px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: #475569; /* slate-600 */
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: #3b82f6; /* blue-500，呼應您的主色調 */
+            }
         </style>
     </head>
     <body class="p-6 font-sans bg-gray-100">
@@ -2304,8 +2392,10 @@
                     <button onclick="toggleAI()" class="text-blue-300 hover:text-blue-500 transition text-lg">✕</button>
                 </div>
 
-                <div id="ai-content" class="text-[15px] text-slate-700 leading-relaxed font-medium px-1">
-                    <p class="italic text-slate-400">請點擊下方股票標籤，我將為您生成即時分析報告...</p>
+                <div class="max-h-[500px] overflow-y-auto p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
+                    <div id="ai-content" class="prose max-w-none text-slate-800">
+                        <p class="italic text-slate-400">請點擊下方股票標籤，我將為您生成即時分析報告...</p>
+                    </div>
                 </div>
             </div>
         </div>
