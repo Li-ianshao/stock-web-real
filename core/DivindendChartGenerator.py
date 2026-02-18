@@ -68,7 +68,7 @@ def get_dividend_chart_base64(ticker_symbol):
     
     # 篩選並按季度加總
     dividends = dividends[dividends.index >= start_date]
-    quarterly_div = dividends.resample('Q').sum()
+    quarterly_div = dividends.resample('QE').sum()
     
     # 整理成 D3 易讀的格式: [{"date": "2023Q1", "amount": 0.5}, ...]
     data_points = []
