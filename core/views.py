@@ -164,15 +164,14 @@ def stock_analysis_view(request, symbol):
             
             # BBAND
             bbands_data = df.ta.bbands(length=20, std=2)
-            print("ok")
             print(bbands_data)
             latest_tech = {
-                "最後收盤價": round(df['close'].iloc[-1], 2),
+                "最後收盤價": round(df['Close'].iloc[-1], 2),
                 "RSI": round(df['RSI'].iloc[-1], 2) if not pd.isna(df['RSI'].iloc[-1]) else "N/A",
                 "MACD": round(df['MACD'].iloc[-1], 2),
-                "布林上限": round(bbands_data['BBU_20_2.0'].iloc[-1], 2),
-                "布林中軌": round(bbands_data['BBM_20_2.0'].iloc[-1], 2),
-                "布林下限": round(bbands_data['BBL_20_2.0'].iloc[-1], 2)
+                "布林上限": round(bbands_data['BBU_20_2.0_2.0'].iloc[-1], 2),
+                "布林中軌": round(bbands_data['BBM_20_2.0_2.0'].iloc[-1], 2),
+                "布林下限": round(bbands_data['BBL_20_2.0_2.0'].iloc[-1], 2)
             }
             print(latest_tech)
 
