@@ -7,7 +7,8 @@ import json
 import pandas as pd
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-import ta
+import ta as TA
+import pandas_ta as ta
 from core.utils.fetcher import fetch_stock_data, load_or_fetch_stock_data, clear_all_pickles, fetch_historical_data, getData, get_sp500_tickers, get_latest_stock_price
 from core.utils.screener import filter_bband_stocks, filter_dividend_stocks, filter_rsi_alert_stocks, filter_macd_cross_stocks, filter_big_drop_stocks, get_stock_data_by_symbol, calculate_bbands, calculate_rsi, calculate_macd
 from core.constants import load_sp500_symbols, TEST_SYMBOLS
@@ -31,6 +32,7 @@ import re
 import time
 import requests
 from core.DivindendChartGenerator import get_dividend_chart_base64
+import yfinance as yf
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
@@ -127,33 +129,129 @@ def stock_analysis_view(request, symbol):
     symbol = symbol.upper()
     analysis_result = ""
 
-    # 建立一個針對 AI 的精簡 Prompt
-    # 2026 年的 Gemini 2.0 支援強大的工具調用或內網搜尋，能自行掌握大方向
-    prompt = f"""
-    請針對股票代碼 {symbol} 進行全方位診斷。
-    你應該分析其：
-    1. 基本面表現。
-    2. 技術面表現（結合當前大盤趨勢）。
-    3. 消息面表現。
-    4. 籌碼面表現。
-    5. 選擇權分析(最重要)
-
-    請直接給出重點摘要，並以繁體中文回答，維持專業分析師的口吻。
-    """
 
     try:
-        # 呼叫 Gemini 2.0 Flash
-        response = client.models.generate_content(
-            model='gemini-2.0-flash', 
-            contents=prompt
-        )
-        analysis_result = response.text
+        # --- A. 抓取 yfinance 資料 ---
+        stock = yf.Ticker(symbol)
         
-    except Exception as e:
-        if "429" in str(e):
-            analysis_result = "⚠️ 系統繁忙（流量限制），請稍候片刻再試。"
+        # 1. 基本面
+        info = stock.info
+        fundamental = {
+            "公司名稱": info.get("longName", "未知"),
+            "產業": info.get("industry", "未知"),
+            "本益比": info.get("forwardPE", "N/A"),
+            "市值": info.get("marketCap", "N/A"),
+            "分析師建議": info.get("recommendationKey", "N/A")
+        }
+
+        # 2. 技術指標
+        df = stock.history(period="6mo")
+        latest_tech = {}
+        if not df.empty:
+            # RSI
+            delta = df['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            df['RSI'] = 100 - (100 / (1 + (gain / loss)))
+            
+            # MACD
+            exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+            exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+            df['MACD'] = exp1 - exp2
+            
+
+            
+            
+            # BBAND
+            bbands_data = df.ta.bbands(length=20, std=2)
+            print("ok")
+            print(bbands_data)
+            latest_tech = {
+                "最後收盤價": round(df['close'].iloc[-1], 2),
+                "RSI": round(df['RSI'].iloc[-1], 2) if not pd.isna(df['RSI'].iloc[-1]) else "N/A",
+                "MACD": round(df['MACD'].iloc[-1], 2),
+                "布林上限": round(bbands_data['BBU_20_2.0'].iloc[-1], 2),
+                "布林中軌": round(bbands_data['BBM_20_2.0'].iloc[-1], 2),
+                "布林下限": round(bbands_data['BBL_20_2.0'].iloc[-1], 2)
+            }
+            print(latest_tech)
+
+
+        # 3. 選擇權與新聞
+        expirations = stock.options
+
+        if expirations:
+            # 抓取最近一個到期日的資料
+            latest_expiry = expirations[0]
+            opts = stock.option_chain(latest_expiry)
+            
+            # 2. 整理 Call 和 Put 的簡單統計 (例如成交量最大的合約)
+            calls = opts.calls.sort_values(by='volume', ascending=False).head(3)
+            puts = opts.puts.sort_values(by='volume', ascending=False).head(3)
+            
+            # 計算 Put/Call Ratio (以成交量計)
+            total_call_vol = opts.calls['volume'].sum()
+            total_put_vol = opts.puts['volume'].sum()
+            pc_ratio = round(total_put_vol / total_call_vol, 2) if total_call_vol > 0 else "N/A"
+
+            options_summary = {
+                "到期日": latest_expiry,
+                "Put/Call成交量比": pc_ratio,
+                "熱門Call(履約價)": calls['strike'].tolist(),
+                "熱門Put(履約價)": puts['strike'].tolist(),
+            }
         else:
-            analysis_result = f"❌ AI 分析暫時無法使用: {str(e)}"
+            options_summary = "該標的無選擇權交易資料"
+        
+        print(options_summary)
+        raw_news = stock.news
+        news_list = []
+
+        if raw_news:
+            for n in raw_news[:5]:
+                # 嘗試從多個可能的鍵值中抓取資訊
+                # 優先順序：標題 (title) -> 摘要 (text) -> 發佈者 (publisher) -> 最後才顯示「無標題」
+                title = n.get('title') or n.get('text') or n.get('publisher') or "無標題"
+                
+                # 如果抓到的是 publisher，可以稍微標註一下
+                if title == n.get('publisher'):
+                    title = f"來自 {title} 的相關報導"
+                    
+                news_list.append(title)
+        else:
+            news_list = ["目前無相關新聞數據"]
+
+
+        print(news_list)
+
+        prompt = f"""
+        針對 {symbol} 的基本面，技術面，選擇權籌碼面進行深度診斷：
+        1. 基本面簡述：{fundamental}
+        2. 技術指標參考：{latest_tech}
+        3. 新聞面:{news_list}
+        4. 選擇權異動資料：{options_summary}
+
+        請特別針對「Put/Call Ratio」與「熱門履約價」進行解讀：
+        - 目前的成交量分佈暗示了市場看漲還是看跌？
+        - 壓力位與支撐位可能落在哪些履約價附近？
+        - 綜合給出投資風險評估與繁體中文建議。
+        """
+
+        try:
+            # 2026 年新版 SDK 呼叫方式
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
+            analysis_result = response.text
+        except Exception as e:
+            if "429" in str(e):
+                analysis_result = "### ⚠️ 流量限制\n免費版請求太快，請等一分鐘再試。"
+            else:
+                analysis_result = f"### ❌ API 呼叫失敗\n{str(e)}"
+
+    except Exception as e:
+        analysis_result = f"### ❌ 數據處理發生錯誤\n{str(e)}"
 
     # 改為回傳 JsonResponse，對接前端的淡藍色對話框
     return JsonResponse({
@@ -161,6 +259,8 @@ def stock_analysis_view(request, symbol):
         'ticker': symbol,
         'analysis_result': analysis_result
     })
+
+    
 
 def get_form4_data(symbol: str, from_date: str = None, to_date: str = None, with_sentiment: bool = False):
     """
@@ -336,18 +436,18 @@ def stock_api(request, symbol):
     df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
 
     # BBands
-    bb = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
+    bb = TA.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
     df['BB_Lower'] = bb.bollinger_lband()
     df['BB_Upper'] = bb.bollinger_hband()
 
     # MACD
-    macd = ta.trend.MACD(df['Close'])
+    macd = TA.trend.MACD(df['Close'])
     df['MACD'] = macd.macd().squeeze()
     df['MACD_signal'] = macd.macd_signal().squeeze()
     df['MACD_hist'] = macd.macd_diff().squeeze()
 
     # RSI
-    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
+    df['RSI'] = TA.momentum.RSIIndicator(df['Close'], window=14).rsi()
 
     # 策略信號
     df['BB_Lower_Cross'] = ((df['Close'].shift(1) < df['BB_Lower'].shift(1)) & (df['Close'] >= df['BB_Lower']))

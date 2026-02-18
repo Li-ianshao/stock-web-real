@@ -257,6 +257,8 @@
                 }
                 tab.classList.add('active', 'bg-white', 'font-bold');
 
+                checkAndSyncAI();
+
                 // 內容 div
                 const contentDiv = document.getElementById('tab-content');
                 activeTab = symbol;
@@ -2175,7 +2177,7 @@
 
             window.addEventListener('DOMContentLoaded', () => {
                 fetchData();
-                document.getElementById('ai-chat-button').addEventListener('click', runStockAnalysis);
+                document.getElementById('ai-chat-button').addEventListener('click', toggleAI);
             });
 
             function showStockTagArea(type) {
@@ -2225,6 +2227,8 @@
             })
 
 
+
+            var aiAnalysisCache = {};
             function runStockAnalysis() {
                 // 1. 抓取 UI 元素
                 const modal = document.getElementById('ai-modal');
@@ -2232,6 +2236,7 @@
                 const chartImg = document.getElementById('dividend-chart-img');
                 const chartPlaceholder = document.getElementById('chart-placeholder');
                 const dividendSection = document.getElementById('dividend-section');
+                const today = new Date().toISOString().split('T')[0]; // 格式：2026-02-18
 
                 // 2. 找出目前 active 的股票代碼 (由您的 div id 決定)
                 const activeArea = document.querySelector('.tab.active');
@@ -2241,31 +2246,39 @@
                 }
                 const symbol = activeArea.id.replace('tab-', '');
 
-                // 3. UI 預備狀態：開啟對話框並顯示讀取中
-                if (modal.classList.contains('hidden')) {
-                    toggleAI(); // 使用您之前的展開動畫函式
-                }
+                
                 aiContent.innerHTML = `
                     <div class="flex items-center gap-2 text-blue-600 font-bold">
                         <span class="animate-ping h-2 w-2 rounded-full bg-blue-400"></span>
                         正在深度診斷 ${symbol} ...
                     </div>
-                    <p class="text-xs text-slate-400 mt-2">正在同步生成十年配息統計圖表...</p>
                 `;
-                // 4. 發送請求至 Django API
-                fetch(`/core/api/stock-analysis/${symbol}/`)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Network response was not ok');
-                        return response.json();
-                    })
-                    .then(data => {
-                        // A. 更新 AI 文字分析 (使用淡藍色對話框)
-                        aiContent.innerText = data.analysis_result;
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        aiContent.innerHTML = `<p class="text-red-500">❌ 分析失敗：${error.message}</p>`;
-                    });
+                // 檢查暫存是否存在
+                if (aiAnalysisCache[symbol] && aiAnalysisCache[symbol][today]) {
+                    
+                    aiContent.innerText = aiAnalysisCache[symbol][today];
+                } else {
+                    console.log("呼叫AI")
+                    // 4. 發送請求至 Django API
+                    fetch(`/core/api/stock-analysis/${symbol}/`)
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok');
+                            return response.json();
+                        })
+                        .then(data => {
+                            // 5. 將結果存入暫存變數
+                            if (!aiAnalysisCache[symbol]) {
+                                aiAnalysisCache[symbol] = {};
+                            }
+                            aiAnalysisCache[symbol][today] = data.analysis_result;
+                            // A. 更新 AI 文字分析 (使用淡藍色對話框)
+                            aiContent.innerText = data.analysis_result;
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            aiContent.innerHTML = `<p class="text-red-500">❌ 分析失敗：${error.message}</p>`;
+                        });
+                }
             }
 
             function toggleAI() {
@@ -2277,12 +2290,27 @@
                     modal.classList.remove('hidden');
                     void modal.offsetWidth; 
                     modal.classList.add('modal-show');
+                    runStockAnalysis();
                 } else {
                     // 關閉對話框
                     modal.classList.remove('modal-show');
                     setTimeout(() => {
                         modal.classList.add('hidden');
                     }, 400);
+                }
+            }
+
+            // 檢查並執行同步分析
+            function checkAndSyncAI() {
+                const aiModal = document.getElementById('ai-modal');
+                
+                // 檢查 Modal 是否「不是」關閉狀態 (假設您使用 Tailwind 的 hidden 類別)
+                const isModalOpen = aiModal && !aiModal.classList.contains('hidden');
+
+                if (isModalOpen) {
+                    console.log("[Auto-Sync] 分頁變更，執行即時診斷...");
+                    // 執行您原本寫好的分析邏輯 (包含前端暫存檢查)
+                    runStockAnalysis(); 
                 }
             }
 
