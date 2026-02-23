@@ -1818,206 +1818,95 @@
                 }
             }
 
-            /**
-             * 使用 D3.js 繪製法人持股圓餅圖
-             * @param {Array} holders - 格式如 [{Holder: 'Vanguard', Shares: 26400836}, ...]
-             */
             function renderOwnershipPieChart(data) {
-                // 1. 設定畫布尺寸
+                // 1. 設定畫布尺寸與邊距
                 const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
-                const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
-                // 修改 renderOwnershipPieChart 開頭的設定
-                const margin = { top: 80, right: 100, bottom: 80, left: 100 }; // 加大四周邊距
-                const width = baseW;
-                const height = 700; // 稍微增加總高度，從 600 變 700
-                const radius = Math.min(width, height) / 2 - 40;
-
+                const baseW = Math.max(900, Math.min(deviceW, 1700));
+                const margin = { top: 40, right: 150, bottom: 40, left: 200 }; // 增加左側空間放名字
+                const width = baseW - margin.left - margin.right;
                 
-                // const svg = d3.select("#chart-dividend")
-                //     .append("svg")
-                //     .attr("width", "100%")
-                //     .attr("height", "auto")
-                //     .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-                //     .attr("preserveAspectRatio", "none")
-                //     .append("g")
-                //     .attr("transform", `translate(${margin.left},${margin.top})`)
+                // 根據數據量動態調整高度，避免 Bar 太擠
+                const barHeight = 45; 
+                const height = data.length * barHeight;
 
-                
                 const container = d3.select("#ownership-chart-container");
                 container.selectAll("*").remove();
 
                 const svg = container.append("svg")
-                    .attr("width", width)
-                    .attr("height", height)
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
                     .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
                     .append("g")
-                    .attr("transform", `translate(${width / 2}, ${height / 2})`);
+                    .attr("transform", `translate(${margin.left},${margin.top})`);
 
-                // 2. 顏色設定 (採用金融專業深藍色調)
-                const color = d3.scaleOrdinal()
-                    .domain(data.map(d => d.holder))
-                    .range(d3.schemeBlues[9].reverse()); 
+                // 2. 數據準備與排序
+                const totalShares = d3.sum(data, d => d.shares || d.Shares || 0);
+                // 按持股數從大到小排序，呈現「階層感」
+                const sortedData = [...data].sort((a, b) => (b.shares || b.Shares) - (a.shares || a.Shares));
 
-                // 3. 準備圓餅圖數據與弧度定義
-                const pie = d3.pie()
-                    .sort(null)
-                    .value(d => d.shares);
+                // 3. 比例尺設定
+                // X 軸：持股數量
+                const x = d3.scaleLinear()
+                    .domain([0, d3.max(sortedData, d => d.shares || d.Shares)])
+                    .range([0, width]);
 
-                const arc = d3.arc()
-                    .innerRadius(radius * 0.6) // 甜甜圈內徑
-                    .outerRadius(radius);
+                // Y 軸：法人名稱
+                const y = d3.scaleBand()
+                    .domain(sortedData.map(d => d.holder || d.Holder))
+                    .range([0, height])
+                    .padding(0.2);
 
-                const hoverArc = d3.arc()
-                    .innerRadius(radius * 0.6)
-                    .outerRadius(radius * 1.05); // 懸停時稍微放大
+                // 4. 顏色設定：採用對比鮮明的 Tableau10
+                const color = d3.scaleOrdinal(d3.schemeTableau10);
 
-                // 4. 繪製區塊
-                const slices = svg.selectAll("path")
-                    .data(pie(data))
-                    .enter()
-                    .append("path")
-                    .attr("d", arc)
-                    .attr("fill", d => color(d.data.holder))
-                    .attr("stroke", "white")
-                    .style("stroke-width", "2px")
-                    .style("cursor", "pointer");
-
-                // 5. 加入動態進場動畫
-                slices.transition()
-                    .duration(1000)
-                    .attrTween("d", function(d) {
-                        const i = d3.interpolate({startAngle: 0, endAngle: 0}, d);
-                        return t => arc(i(t));
-                    });
-
-                // --- 在第 5 步之後加入以下邏輯 ---
-
-                // 5.5 定義一個比原本半徑稍大的虛擬弧線，用來定位標籤
-                const labelArc = d3.arc()
-                    .innerRadius(radius * 1.2) // 將文字放在半徑 1.2 倍的地方
-                    .outerRadius(radius * 1.2);
-
-                // // 繪製標籤群組
-                // const labels = svg.selectAll(".slice-label")
-                //     .data(pie(data))
-                //     .enter()
-                //     .append("g")
-                //     .attr("class", "slice-label");
-
-                
-
-                // 使用 d3.sum 快速計算總股數
-                const totalShares = d3.sum(data, d => d.shares);
-
-                // 1. 先將數據排序，確保標籤是按順序處理的，這對碰撞檢查很重要
-                const pieData = pie(data).sort((a, b) => a.startAngle - b.startAngle);
-
-                // 2. 準備紀錄左、右兩側上一個標籤的 Y 座標
-                let prevY_Right = -Infinity;
-                let prevY_Left = -Infinity;
-                const minSpacing = 22; // 每個標籤之間的最小垂直距離
-
-                // 繪製標籤
-                const labelGroups = svg.selectAll(".slice-label")
-                    .data(pieData)
+                // 5. 繪製長條 (Bars)
+                const bars = svg.selectAll(".bar")
+                    .data(sortedData)
                     .enter()
                     .append("g")
-                    .attr("class", "slice-label");
+                    .attr("class", "bar-group");
 
-                labelGroups.each(function(d) {
-                    const group = d3.select(this);
-                    const pos = labelArc.centroid(d);
-                    const midAngle = d.startAngle + (d.endAngle - d.startAngle) / 2;
-                    const isRight = midAngle < Math.PI;
+                bars.append("rect")
+                    .attr("y", d => y(d.holder || d.Holder))
+                    .attr("height", y.bandwidth())
+                    .attr("x", 0)
+                    .attr("width", 0) // 初始化為 0 以供動畫
+                    .attr("fill", (d, i) => color(i)) // 每個 Bar 顏色都不同
+                    .attr("rx", 4) // 增加圓角
+                    .transition() // 入場動畫
+                    .duration(1000)
+                    .attr("width", d => x(d.shares || d.Shares));
 
-                    // 計算避讓後的 Y 座標
-                    let targetY = pos[1];
-                    if (isRight) {
-                        if (targetY < prevY_Right + minSpacing) targetY = prevY_Right + minSpacing;
-                        prevY_Right = targetY;
-                    } else {
-                        if (targetY < prevY_Left + minSpacing) targetY = prevY_Left + minSpacing;
-                        prevY_Left = targetY;
-                    }
+                // 6. 印出名字與持股百分比 (%)
+                bars.append("text")
+                    .attr("class", "label")
+                    .attr("y", d => y(d.holder || d.Holder) + y.bandwidth() / 2)
+                    .attr("x", -10) // 放在 Bar 左側
+                    .attr("dy", ".35em")
+                    .attr("text-anchor", "end")
+                    .style("font-size", "14px")
+                    .style("font-weight", "bold")
+                    .style("fill", "#1e293b")
+                    .text(d => d.holder || d.Holder);
 
-                    const finalX = radius * 1.2 * (isRight ? 1 : -1);
-                    group.attr("transform", `translate(${finalX}, ${targetY})`);
+                bars.append("text")
+                    .attr("class", "percent-label")
+                    .attr("y", d => y(d.holder || d.Holder) + y.bandwidth() / 2)
+                    .attr("x", d => x(d.shares || d.Shares) + 10) // 放在 Bar 右側
+                    .attr("dy", ".35em")
+                    .style("font-size", "13px")
+                    .style("fill", "#64748b")
+                    .text(d => {
+                        const val = d.shares || d.Shares;
+                        const percent = ((val / totalShares) * 100).toFixed(2);
+                        return `${val.toLocaleString()} (${percent}%)`;
+                    });
 
-                    // 1. 加入持有者名稱 (注意：請根據 API 實際回傳確認是 'Holder' 還是 'holder')
-                    const holderName = d.data.Holder || d.data.holder || "Unknown";
-                    group.append("text")
-                        .attr("dy", "-0.5em")
-                        .style("text-anchor", isRight ? "start" : "end")
-                        .style("font-size", "12px")
-                        .style("font-weight", "bold")
-                        .style("fill", "#1e293b")
-                        .text(holderName); // 👈 直接帶入變數，確保文字被加入
-
-                    // 2. 加入持股數與百分比
-                    const sharesValue = d.data.Shares || d.data.shares || 0;
-                    const percent = ((sharesValue / totalShares) * 100).toFixed(2);
-                    
-                    group.append("text")
-                        .attr("dy", "0.8em")
-                        .style("text-anchor", isRight ? "start" : "end")
-                        .style("font-size", "11px")
-                        .style("fill", "#64748b")
-                        .text(`${sharesValue.toLocaleString()} (${percent}%)`);
-
-                    // 3. 繪製連接線
-                    group.append("polyline")
-                        .attr("points", function() {
-                            const innerPos = arc.centroid(d); 
-                            const elbowPos = [finalX * 0.95, targetY]; 
-                            const endPos = [finalX * 0.98, targetY]; 
-                            return [innerPos, elbowPos, endPos];
-                        })
-                        .style("fill", "none")
-                        .style("stroke", "#cbd5e1")
-                        .style("stroke-width", "1px")
-                        .style("opacity", 0.5);
-                });
-
-                // // (選擇性) 加入連接線，讓視覺更專業
-                // labels.append("polyline")
-                //     .attr("points", function(d) {
-                //         const pos = labelArc.centroid(d);
-                //         const midAngle = d.startAngle + (d.endAngle - d.startAngle) / 2;
-                //         pos[0] = radius * 1.1 * (midAngle < Math.PI ? 1 : -1);
-                //         return [arc.centroid(d), labelArc.centroid(d), pos];
-                //     })
-                //     .style("fill", "none")
-                //     .style("stroke", "#cbd5e1")
-                //     .style("stroke-width", "1px")
-                //     .style("opacity", 0.6);
-                
-                
-
-                // 6. 互動效果：顯示 Tooltip 或數值
-                slices.on("mouseenter", function(event, d) {
-                    d3.select(this).transition().duration(200).attr("d", hoverArc);
-                    
-                    // 顯示在圓心位置
-                    svg.append("text")
-                        .attr("class", "pie-center-text")
-                        .attr("text-anchor", "middle")
-                        .attr("dy", "-0.2em") // 稍微往上提一點
-                        .style("font-size", "18px") // 👈 這裡調大
-                        .style("font-weight", "900") // 使用極粗體增加專業感
-                        .style("fill", "#1e293b") // 使用深色字體
-                        .text(d.data.holder);
-                        
-                    svg.append("text")
-                        .attr("class", "pie-center-text")
-                        .attr("text-anchor", "middle")
-                        .attr("dy", "1.5em") // 增加垂直間距，避免文字擠在一起
-                        .style("font-size", "14px") // 👈 同步調大
-                        .style("fill", "#64748b") // 使用灰藍色
-                        .text(d.data.shares.toLocaleString() + " Shares");
-                })
-                .on("mouseleave", function() {
-                    d3.select(this).transition().duration(200).attr("d", arc);
-                    svg.selectAll(".pie-center-text").remove();
+                // 7. 互動效果：Hover 變色
+                bars.on("mouseenter", function() {
+                    d3.select(this).select("rect").style("opacity", 0.7);
+                }).on("mouseleave", function() {
+                    d3.select(this).select("rect").style("opacity", 1);
                 });
             }
 
