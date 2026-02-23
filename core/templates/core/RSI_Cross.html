@@ -544,6 +544,26 @@
                                             </ul>
                                         </div>
                                     </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2  mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                        <div>
+                                            <span class="font-medium text-gray-600">未計利息稅項折舊及攤銷前利潤(ebitda)：</span> 
+                                            <span class="${getClassByValue( data.ebitda,0,0)}">${ data.ebitda }</span>
+                                            <div class="text-gray-400 mt-1">排除財務支出後的「真實本業」賺錢能量</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>此數值應為正值，代表營運產生正向現金流。</li>
+                                                <li>這是在比較不同負債比例公司時，最純粹的獲利指標。</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">EBITDA 利潤率(ebitda_margins)：</span> 
+                                            <span class="${getClassByValue( data.ebitda_margins,0.2,0.2)}">${ data.ebitda_margins }</span>
+                                            <div class="text-gray-400 mt-1">每一塊錢營收轉化為營運利潤的比例</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>反映公司的營運管理效率。</li>
+                                                <li>穩定且高於 0.2(20%) 代表營運體質非常強韌。</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="border rounded-lg shadow p-4 bg-white mb-6">
                                     <h2 class="text-lg font-bold text-indigo-700 mb-2">估值指標</h2>
@@ -580,7 +600,7 @@
                                             </ul>
                                         </div>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2  mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                    <div class="grid grid-cols-1 md:grid-cols-3  mt-5 gap-x-8 gap-y-2 text-sm text-gray-700">
                                         <div>
                                             <span class="font-medium text-gray-600">歷史本益比(trailingPE)：</span> 
                                             <span class="${getClassByValue( data.trailingPE*-1,-10,-30)}">${ data.trailingPE }</span>
@@ -601,11 +621,20 @@
                                                 <li>forwardPE > trailingPE → 預期獲利下滑，可能市場保守（負面）</li>
                                             </ul>
                                         </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">企業價值倍數(enterprise_to_ebitda)：</span> 
+                                            <span class="${getClassByValue( data.enterprise_to_ebitda*-1,-10,-10)}">${ data.forwardPE }
+                                            <div class="text-gray-400 mt-1">買下整間公司後，靠本業幾年可以回本</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li>這是比本益比更精確的「買價」估算。</li>
+                                                <li><10 代表估值相對合理。</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="border rounded-lg shadow p-4 bg-white mb-6">
                                     <h2 class="text-lg font-bold text-indigo-700 mb-2">財務風險/安全</h2>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-gray-700">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-2 text-sm text-gray-700">
                                         <div>
                                             <span class="font-medium text-gray-600">自由現金流(free_cashflow)：</span> 
                                             <span class="${getClassByValue( data.free_cashflow,0,0)}">${ data.free_cashflow ? data.free_cashflow.toLocaleString('en-US') : "No data" }</span>
@@ -622,6 +651,15 @@
                                             <ul class="text-gray-400 list-disc list-inside">
                                                 <li>長期為正，公司營運良好</li>
                                                 <li>若為負，公司需警覺現金周轉困難</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <span class="font-medium text-gray-600">負債權益比(debt_to_equity)：</span> 
+                                            <span class="${getClassByValue( data.debt_to_equity*-1,-50,-100)}">${ data.debt_to_equity }%</span>
+                                            <div class="text-gray-400 mt-1">公司負債佔股東權益的比例</div>
+                                            <ul class="text-gray-400 list-disc list-inside">
+                                                <li><50% 代表財務體質健康。</li>
+                                                <li>>100% 風險較高，若遇到升息或景氣下滑，利息負擔會很沈重。</li>
                                             </ul>
                                         </div>
                                     </div>
@@ -736,8 +774,6 @@
                             </div>
                             <div id="news-area"></div>
                         </div>
-                        <!--<img src="data:image/png;base64,${data.techmap}" class="max-w-full border rounded shadow" />-->
-                        
                         <div id="goal-heatmap-area" style="display:none;" class="mb-8 bg-white rounded-xl shadow p-4">
                             <img src="data:image/png;base64,${data.heatmap_goal}" class="max-w-full border rounded shadow" />
                             <h2 class="text-xl font-bold mb-2">目標達標率明細</h2>
@@ -885,39 +921,39 @@
 
             // 主要渲染函式
             function renderNewsArea(newsList, mountId = "news-area") {
-            const mount = document.getElementById(mountId);
-            if (!mount) return;
+                const mount = document.getElementById(mountId);
+                if (!mount) return;
 
-            if (!Array.isArray(newsList) || newsList.length === 0) {
-                mount.innerHTML = `
-                <div class="text-gray-500 text-sm italic px-2 py-3 border rounded">
-                    No recent news available.
-                </div>`;
-                return;
-            }
+                if (!Array.isArray(newsList) || newsList.length === 0) {
+                    mount.innerHTML = `
+                    <div class="text-gray-500 text-sm italic px-2 py-3 border rounded">
+                        No recent news available.
+                    </div>`;
+                    return;
+                }
 
-            const html = newsList.map(n => {
-                const title     = escapeHTML(n.title_zh);
-                const summary   = escapeHTML(n.summary_zh || "");
-                const link      = n.link || "#";
-                const publisher = escapeHTML(
-                (n.provider && n.provider.displayName) ? n.provider.displayName : (n.publisher || "")
-                );
-                const dateText  = formatPubDate(n.pubDate);
+                const html = newsList.map(n => {
+                    const title     = escapeHTML(n.title_zh);
+                    const summary   = escapeHTML(n.summary_zh || "");
+                    const link      = n.link || "#";
+                    const publisher = escapeHTML(
+                    (n.provider && n.provider.displayName) ? n.provider.displayName : (n.publisher || "")
+                    );
+                    const dateText  = formatPubDate(n.pubDate);
 
-                return `
-                <a href="${link}" target="_blank" rel="noopener"
-                    class="block border rounded-lg p-4 bg-white hover:shadow transition">
-                    <div class="text-base font-semibold text-gray-900 mb-1 line-clamp-2">${title}</div>
-                    <div class="text-xs text-gray-500 mb-2">
-                    ${publisher ? `${publisher}` : "News"}${dateText ? ` · ${dateText}` : ""}
-                    </div>
-                    ${summary ? `<div class="text-sm text-gray-700 line-clamp-2">${summary}</div>` : ""}
-                </a>
-                `;
-            }).join("");
+                    return `
+                    <a href="${link}" target="_blank" rel="noopener"
+                        class="block border rounded-lg p-4 bg-white hover:shadow transition">
+                        <div class="text-base font-semibold text-gray-900 mb-1 line-clamp-2">${title}</div>
+                        <div class="text-xs text-gray-500 mb-2">
+                        ${publisher ? `${publisher}` : "News"}${dateText ? ` · ${dateText}` : ""}
+                        </div>
+                        ${summary ? `<div class="text-sm text-gray-700 line-clamp-2">${summary}</div>` : ""}
+                    </a>
+                    `;
+                }).join("");
 
-            mount.innerHTML = html;
+                mount.innerHTML = html;
             }
 
             
@@ -1790,9 +1826,10 @@
                 // 1. 設定畫布尺寸
                 const deviceW = Math.max(document.body.clientWidth, window.innerWidth || 0);
                 const baseW = Math.max(900, Math.min(deviceW, 1700)); // 保證最小900，最大1700
-                const margin = { top: 20, right: 40, bottom: 30, left: 50};
-                    width = baseW;
-                    height = 600 //- margin.top - margin.bottom;
+                // 修改 renderOwnershipPieChart 開頭的設定
+                const margin = { top: 80, right: 100, bottom: 80, left: 100 }; // 加大四周邊距
+                const width = baseW;
+                const height = 700; // 稍微增加總高度，從 600 變 700
                 const radius = Math.min(width, height) / 2 - 40;
 
                 
@@ -1852,6 +1889,109 @@
                         const i = d3.interpolate({startAngle: 0, endAngle: 0}, d);
                         return t => arc(i(t));
                     });
+
+                // --- 在第 5 步之後加入以下邏輯 ---
+
+                // 5.5 定義一個比原本半徑稍大的虛擬弧線，用來定位標籤
+                const labelArc = d3.arc()
+                    .innerRadius(radius * 1.2) // 將文字放在半徑 1.2 倍的地方
+                    .outerRadius(radius * 1.2);
+
+                // // 繪製標籤群組
+                // const labels = svg.selectAll(".slice-label")
+                //     .data(pie(data))
+                //     .enter()
+                //     .append("g")
+                //     .attr("class", "slice-label");
+
+                
+
+                // 使用 d3.sum 快速計算總股數
+                const totalShares = d3.sum(data, d => d.shares);
+
+                // 1. 先將數據排序，確保標籤是按順序處理的，這對碰撞檢查很重要
+                const pieData = pie(data).sort((a, b) => a.startAngle - b.startAngle);
+
+                // 2. 準備紀錄左、右兩側上一個標籤的 Y 座標
+                let prevY_Right = -Infinity;
+                let prevY_Left = -Infinity;
+                const minSpacing = 22; // 每個標籤之間的最小垂直距離
+
+                // 繪製標籤
+                const labelGroups = svg.selectAll(".slice-label")
+                    .data(pieData)
+                    .enter()
+                    .append("g")
+                    .attr("class", "slice-label");
+
+                labelGroups.each(function(d) {
+                    const group = d3.select(this);
+                    const pos = labelArc.centroid(d);
+                    const midAngle = d.startAngle + (d.endAngle - d.startAngle) / 2;
+                    const isRight = midAngle < Math.PI;
+
+                    // 計算避讓後的 Y 座標
+                    let targetY = pos[1];
+                    if (isRight) {
+                        if (targetY < prevY_Right + minSpacing) targetY = prevY_Right + minSpacing;
+                        prevY_Right = targetY;
+                    } else {
+                        if (targetY < prevY_Left + minSpacing) targetY = prevY_Left + minSpacing;
+                        prevY_Left = targetY;
+                    }
+
+                    const finalX = radius * 1.2 * (isRight ? 1 : -1);
+                    group.attr("transform", `translate(${finalX}, ${targetY})`);
+
+                    // 1. 加入持有者名稱 (注意：請根據 API 實際回傳確認是 'Holder' 還是 'holder')
+                    const holderName = d.data.Holder || d.data.holder || "Unknown";
+                    group.append("text")
+                        .attr("dy", "-0.5em")
+                        .style("text-anchor", isRight ? "start" : "end")
+                        .style("font-size", "12px")
+                        .style("font-weight", "bold")
+                        .style("fill", "#1e293b")
+                        .text(holderName); // 👈 直接帶入變數，確保文字被加入
+
+                    // 2. 加入持股數與百分比
+                    const sharesValue = d.data.Shares || d.data.shares || 0;
+                    const percent = ((sharesValue / totalShares) * 100).toFixed(2);
+                    
+                    group.append("text")
+                        .attr("dy", "0.8em")
+                        .style("text-anchor", isRight ? "start" : "end")
+                        .style("font-size", "11px")
+                        .style("fill", "#64748b")
+                        .text(`${sharesValue.toLocaleString()} (${percent}%)`);
+
+                    // 3. 繪製連接線
+                    group.append("polyline")
+                        .attr("points", function() {
+                            const innerPos = arc.centroid(d); 
+                            const elbowPos = [finalX * 0.95, targetY]; 
+                            const endPos = [finalX * 0.98, targetY]; 
+                            return [innerPos, elbowPos, endPos];
+                        })
+                        .style("fill", "none")
+                        .style("stroke", "#cbd5e1")
+                        .style("stroke-width", "1px")
+                        .style("opacity", 0.5);
+                });
+
+                // // (選擇性) 加入連接線，讓視覺更專業
+                // labels.append("polyline")
+                //     .attr("points", function(d) {
+                //         const pos = labelArc.centroid(d);
+                //         const midAngle = d.startAngle + (d.endAngle - d.startAngle) / 2;
+                //         pos[0] = radius * 1.1 * (midAngle < Math.PI ? 1 : -1);
+                //         return [arc.centroid(d), labelArc.centroid(d), pos];
+                //     })
+                //     .style("fill", "none")
+                //     .style("stroke", "#cbd5e1")
+                //     .style("stroke-width", "1px")
+                //     .style("opacity", 0.6);
+                
+                
 
                 // 6. 互動效果：顯示 Tooltip 或數值
                 slices.on("mouseenter", function(event, d) {
@@ -2389,6 +2529,16 @@
             .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                 background: #3b82f6; /* blue-500，呼應您的主色調 */
             }
+
+            /* 確保圖表容器不會切掉溢出的標籤 */
+            #ownership-chart-container {
+                overflow: visible !important;
+                padding-top: 20px; /* 額外給一點頂部空間 */
+            }
+
+            svg {
+                overflow: visible !important;
+            }
         </style>
     </head>
     <body class="p-6 font-sans bg-gray-100">
@@ -2417,7 +2567,7 @@
                         <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                         <span class="text-[11px] font-bold text-blue-500 tracking-widest uppercase">AI Analysis Report</span>
                     </div>
-                    <button onclick="toggleAI()" class="text-blue-300 hover:text-blue-500 transition text-lg">✕</button>
+                    <button onclick="toggleAI()" class="text-blue-300 hover:text-blue-500 transition text-lg">&#9472;</button>
                 </div>
 
                 <div class="max-h-[500px] overflow-y-auto p-6 bg-white rounded-2xl shadow-sm border border-slate-200">

@@ -148,27 +148,35 @@ def stock_analysis_view(request, symbol):
         df = stock.history(period="6mo")
         latest_tech = {}
         if not df.empty:
-            # RSI
-            delta = df['Close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            df['RSI'] = 100 - (100 / (1 + (gain / loss)))
+            # # RSI
+            # delta = df['Close'].diff()
+            # gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            # loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            # df['RSI'] = 100 - (100 / (1 + (gain / loss)))
             
-            # MACD
-            exp1 = df['Close'].ewm(span=12, adjust=False).mean()
-            exp2 = df['Close'].ewm(span=26, adjust=False).mean()
-            df['MACD'] = exp1 - exp2
-            
+            # # MACD
+            # exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+            # exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+            # df['MACD'] = exp1 - exp2
+
+            # 1. 計算 RSI (預設長度為 14)
+            # append=True 會直接將結果 'RSI_14' 加入 df
+            df.ta.rsi(length=14, append=True)
+
+            # 2. 計算 MACD (預設 fast=12, slow=26, signal=9)
+            # append=True 會加入 'MACD_12_26_9', 'MACDH_12_26_9', 'MACDS_12_26_9'
+            df.ta.macd(fast=12, slow=26, signal=9, append=True)
+                        
 
             
             
             # BBAND
             bbands_data = df.ta.bbands(length=20, std=2)
-            print(bbands_data)
+            print(df)
             latest_tech = {
                 "最後收盤價": round(df['Close'].iloc[-1], 2),
-                "RSI": round(df['RSI'].iloc[-1], 2) if not pd.isna(df['RSI'].iloc[-1]) else "N/A",
-                "MACD": round(df['MACD'].iloc[-1], 2),
+                "RSI": round(df['RSI_14'].iloc[-1], 2) if not pd.isna(df['RSI_14'].iloc[-1]) else "N/A",
+                "MACD": round(df['MACD_12_26_9'].iloc[-1], 2) if not pd.isna(df['MACD_12_26_9'].iloc[-1]) else "N/A",
                 "布林上限": round(bbands_data['BBU_20_2.0_2.0'].iloc[-1], 2),
                 "布林中軌": round(bbands_data['BBM_20_2.0_2.0'].iloc[-1], 2),
                 "布林下限": round(bbands_data['BBL_20_2.0_2.0'].iloc[-1], 2)
@@ -202,7 +210,7 @@ def stock_analysis_view(request, symbol):
         else:
             options_summary = "該標的無選擇權交易資料"
         
-        print(options_summary)
+        # print(options_summary)
         raw_news = stock.news
         news_list = []
 
@@ -210,10 +218,11 @@ def stock_analysis_view(request, symbol):
             for n in raw_news[:5]:
                 # 嘗試從多個可能的鍵值中抓取資訊
                 # 優先順序：標題 (title) -> 摘要 (text) -> 發佈者 (publisher) -> 最後才顯示「無標題」
-                title = n.get('title') or n.get('text') or n.get('publisher') or "無標題"
+                content = n.get('content', {})
+                title = content.get('title') or content.get('text') or content.get('publisher') or "無標題"
                 
                 # 如果抓到的是 publisher，可以稍微標註一下
-                if title == n.get('publisher'):
+                if title == content.get('publisher'):
                     title = f"來自 {title} 的相關報導"
                     
                 news_list.append(title)
@@ -223,6 +232,7 @@ def stock_analysis_view(request, symbol):
 
         print(news_list)
 
+        
         prompt = f"""
         針對 {symbol} 的基本面，技術面，選擇權籌碼面進行深度診斷：
         1. 基本面簡述：{fundamental}
@@ -511,8 +521,6 @@ def stock_api(request, symbol):
     ax = axes[1]
     pos = df['MACD_hist'] > 0
     neg = ~pos
-    # ax.bar(dates[pos], df.loc[pos, 'MACD_hist'], color='green', alpha=0.85, label='MACD Hist +')
-    # ax.bar(dates[neg], df.loc[neg, 'MACD_hist'], color='red', alpha=0.85, label='MACD Hist -')
     ax.bar(dates[cond1], hist[cond1], color='#22c55e', alpha=0.9, label='MACD Hist up ↑')    # 亮綠
     ax.bar(dates[cond2], hist[cond2], color='#166534', alpha=0.85, label='MACD Hist weak ↑') # 暗綠
     ax.bar(dates[cond3], hist[cond3], color='#ef4444', alpha=0.85, label='MACD Hist down ↓') # 紅
@@ -767,57 +775,63 @@ def stock_api(request, symbol):
 
     # 抓取十年配息資料並繪製成統計表
     div_chart = get_dividend_chart_base64(symbol)
+
     
 
     return JsonResponse({
-        "symbol": symbol,
-        'div_chart': div_chart,
-        'heatmap_goal': img_base64_heat_goal,
-        'heatmap_goal_detail': heat_goal_detail,
-        'Form4_transactions': Form4_transactions,
-        'heatmap_div': img_base64_heat_div,
-        'heatmap_div_detail': dividend_list,
-        "institution_overview": info,      # {institution_percent, insider_percent}
-        "institutional_holders": holders,  # list of dict
-        "major_holders": major,       # list of {label, value}
-        "event_count": len(historical_data),
-        'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
-        'sharesShort': stock_data[symbol]['info'].get('sharesShort') or stock_data['info'].get('sharesShort',"(Empty)"),
-        'shortRatio': stock_data[symbol]['info'].get('shortRatio') or stock_data['info'].get('shortRatio',"(Empty)"),
-        'sharesOutstanding': stock_data[symbol]['info'].get('sharesOutstanding') or stock_data['info'].get('sharesOutstanding',"(Empty)"),
-        'news_list':news_list_translated,
-        'techmap': img_base64_tech,
-        "event_count": len(historical_data),
-        'techmap': img_base64_tech,
-        "event_count": len(historical_data),
-        'sector': stock_data[symbol]['info'].get('sector',"(Empty)"),
-        'industry': stock_data[symbol]['info'].get('industry',"(Empty)"),
-        'market_cap': stock_data[symbol]['info'].get('marketCap',"(Empty)"),
-        'price_to_book': stock_data[symbol]['info'].get('priceToBook',"(Empty)"),
-        'price_to_sales': stock_data[symbol]['info'].get('priceToSalesTrailing12Months',"(Empty)"),
+        'symbol': symbol,
+        #Profitability & Operations
         'trailing_eps': stock_data[symbol]['info'].get('trailingEps',"(Empty)"),
         'forward_eps': stock_data[symbol]['info'].get('forwardEps',"(Empty)"),
-        'trailingPE': stock_data[symbol]['info'].get('trailingPE',"(Empty)"),
-        'forwardPE': stock_data[symbol]['info'].get('forwardPE',"(Empty)"),
-        'revenue_growth': stock_data[symbol]['info'].get('revenueGrowth',"(Empty)"),
+        'return_on_assets': stock_data[symbol]['info'].get('returnOnAssets',"(Empty)"),
+        'return_on_equity': stock_data[symbol]['info'].get('returnOnEquity',"(Empty)"),
         'gross_margins': stock_data[symbol]['info'].get('grossMargins',"(Empty)"),
         'operating_margins': stock_data[symbol]['info'].get('operatingMargins',"(Empty)"),
         'profit_margins': stock_data[symbol]['info'].get('profitMargins',"(Empty)"),
-        'return_on_assets': stock_data[symbol]['info'].get('returnOnAssets',"(Empty)"),
-        'return_on_equity': stock_data[symbol]['info'].get('returnOnEquity',"(Empty)"),
+        'ebitda': stock_data[symbol]['info'].get('ebitda', "(Empty)"),
+        'ebitda_margins': stock_data[symbol]['info'].get('ebitdaMargins', "(Empty)"),
+        #Valuation & Multiples
+        'trailingPE': stock_data[symbol]['info'].get('trailingPE',"(Empty)"),
+        'forwardPE': stock_data[symbol]['info'].get('forwardPE',"(Empty)"),
+        'price_to_book': stock_data[symbol]['info'].get('priceToBook',"(Empty)"),
+        'price_to_sales': stock_data[symbol]['info'].get('priceToSalesTrailing12Months',"(Empty)"),
+        'enterprise_to_ebitda': stock_data[symbol]['info'].get('enterpriseToEbitda', "(Empty)"),
         'dividend_rate': stock_data[symbol]['info'].get('dividendRate',"(Empty)"),
         'dividend_yield': stock_data[symbol]['info'].get('dividendYield',"(Empty)"),
         'payout_ratio': stock_data[symbol]['info'].get('payoutRatio',"(Empty)"),
+        #Health & Cash Flow
         'total_debt': stock_data[symbol]['info'].get('totalDebt',"(Empty)"),
         'debt_to_equity': stock_data[symbol]['info'].get('debtToEquity',"(Empty)"),
         'free_cashflow': stock_data[symbol]['info'].get('freeCashflow',"(Empty)"),
         'operating_cashflow': stock_data[symbol]['info'].get('operatingCashflow',"(Empty)"),
-        'averageVolume': stock_data[symbol]['info'].get('averageVolume',"(Empty)"),
-        'website': stock_data[symbol]['info'].get('website',"(Empty)"),
+        'revenue_growth': stock_data[symbol]['info'].get('revenueGrowth',"(Empty)"),
+        #Visualizations
+        'techmap': img_base64_tech,
+        'div_chart': div_chart,
+        'heatmap_goal': img_base64_heat_goal,
+        'heatmap_goal_detail': heat_goal_detail,
+        'heatmap_div': img_base64_heat_div,
+        'heatmap_div_detail': dividend_list,
+        'price_data': price_data,
+        #Activity & Context
+        'institution_overview': info,      # {institution_percent, insider_percent}
+        'institutional_holders': holders,  # list of dict
+        'major_holders': major,       # list of {label, value}
+        'Form4_transactions': Form4_transactions,
+        'sharesShort': stock_data[symbol]['info'].get('sharesShort') or stock_data['info'].get('sharesShort',"(Empty)"),
+        'shortRatio': stock_data[symbol]['info'].get('shortRatio') or stock_data['info'].get('shortRatio',"(Empty)"),
+        'news_list':news_list_translated,
         'dividend_date': dividend_date,
         'exDividend_Date': exDividend_Date,
         'dividends':dividends_list,
-        'price_data': price_data,
+        'website': stock_data[symbol]['info'].get('website',"(Empty)"),
+        'averageVolume': stock_data[symbol]['info'].get('averageVolume',"(Empty)"),
+        'industry': stock_data[symbol]['info'].get('industry',"(Empty)"),
+        'event_count': len(historical_data),
+        'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
+        'sharesOutstanding': stock_data[symbol]['info'].get('sharesOutstanding') or stock_data['info'].get('sharesOutstanding',"(Empty)"),
+        'sector': stock_data[symbol]['info'].get('sector',"(Empty)"),
+        'market_cap': stock_data[symbol]['info'].get('marketCap',"(Empty)"),
     })
 
 def empty_heatmap_base64(text="沒有資料 / No Signal"):
