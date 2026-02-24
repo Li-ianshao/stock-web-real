@@ -11,6 +11,7 @@ urlpatterns = [
     path('rsicross/', views.stock_input_view, name='stock_input_view'),
     path('api/stock/<str:symbol>/', views.stock_api, name='stock_api'),
     path('api/stockdata/', views.stockdata_api, name='stockdata_api'),
+    path('api/flow_data/', views.get_flow_data, name='get_flow_data'),
     path('api/stock-analysis/<str:symbol>/', views.stock_analysis_view, name='stock_analysis_api'),
     path('api/stock-price/<str:symbol>/', views.stock_price_api, name='stock_price_api'),
     path('<str:symbol>/', views.stock_detail_view, name='stock_detail'),  # 詳細頁

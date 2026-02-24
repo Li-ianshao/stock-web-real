@@ -107,6 +107,55 @@ def stockdata_api(request):
         return JsonResponse({'status': 'error', 'msg': '不支援的方法'}, status=405)
     
 
+
+# 產業與對應的代表性 ETF 
+SECTORS = {
+    'Technology (科技)': 'XLK',
+    'Health Care (醫療)': 'XLV',
+    'Financials (金融)': 'XLF',
+    'Energy (能源)': 'XLE',
+    'Consumer Discretionary (非必需消費)': 'XLY',
+    'Consumer Staples (必需消費)': 'XLP',
+    'Industrials (工業)': 'XLI',
+    'Materials (原物料)': 'XLB',
+    'Real Estate (房地產)': 'XLRE',
+    'Utilities (公用事業)': 'XLU',
+    'Communication Services (通訊)': 'XLC'
+}
+
+def index(request):
+    """渲染前端 HTML 頁面"""
+    return render(request, 'streamgraph/index.html')
+
+def get_flow_data(request):
+    """提供給 D3.js 的 API，回傳過去一年的資金流動數據"""
+    tickers = list(SECTORS.values())
+    
+    # 取得過去一年的週線資料 (用週線可以讓河流圖更平滑)
+    data = yf.download(tickers, period="1y", interval="1wk")
+    
+    # 計算資金流動 (Dollar Volume) = 收盤價 * 成交量
+    # yfinance 回傳的多層級 MultiIndex DataFrame: data['Close']['XLK']
+    df_close = data['Close']
+    df_volume = data['Volume']
+    df_flow = df_close * df_volume
+    
+    # 處理缺失值
+    df_flow = df_flow.fillna(0)
+    
+    # 轉換格式以符合 D3.js 需求
+    # 目標格式: [{'date': '2023-01-01', 'Technology': 1000, 'Financials': 2000, ...}, ...]
+    result = []
+    for date, row in df_flow.iterrows():
+        item = {'date': date.strftime('%Y-%m-%d')}
+        for sector_name, ticker in SECTORS.items():
+            # 確保數值是 Python 原生的 float
+            item[sector_name] = float(row[ticker]) if ticker in row else 0
+        result.append(item)
+        
+    return JsonResponse(result, safe=False)
+
+
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 # 設定FinHub的環境變數，用來抓Form4的必要設定
 def _check_key():

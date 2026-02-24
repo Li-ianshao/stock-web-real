@@ -104,6 +104,12 @@
                     } else {
                         tagArea.innerHTML = "";// 先清空
                     }
+
+                    if (category == "Cap. Flow" && document.getElementById("stock-tag-area-Cap. Flow")) {
+                        //如果是Cap Flow則不需要插入股票標籤，改為插入河流圖
+                        drawFlowChart()
+                        return
+                    }
                     
                     // 產生標籤
                     data[category].forEach(symbolItem => {
@@ -1684,6 +1690,134 @@
                 }
             }
 
+
+            function drawFlowChart() {
+                // 設定畫布與邊界 (右側留 150px 給圖例)
+                const margin = {top: 40, right: 150, bottom: 50, left: 50},
+                    totalWidth = 1000,
+                    width = totalWidth - margin.left - margin.right,
+                    height = 500 - margin.top - margin.bottom;
+
+
+                // 建立 SVG
+                const svg = d3.select('[id="stock-tag-area-Cap. Flow"]')
+                .append("svg")
+                    .attr("width", totalWidth)
+                    .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+                // 建立 Tooltip
+                const tooltip = d3.select('[id="stock-tag-area-Cap. Flow"]')
+                    .append("div")
+                    .attr("class", "tooltip");
+
+                // 解析日期的函數
+                const parseDate = d3.timeParse("%Y-%m-%d");
+
+                // 呼叫 Django API 獲取資料
+                d3.json("/core/api/flow_data/").then(function(data) {
+                    
+                    // 轉換日期字串為 Date 物件
+                    data.forEach(d => {
+                        d.date = parseDate(d.date);
+                    });
+
+                    // 取得所有產業名稱 (keys)
+                    const keys = Object.keys(data[0]).filter(k => k !== "date");
+
+                    // 設定 X 軸 (時間)
+                    const x = d3.scaleTime()
+                        .domain(d3.extent(data, d => d.date))
+                        .range([ 0, width ]);
+                    
+                    svg.append("g")
+                        .attr("transform", `translate(0, ${height})`)
+                        .call(d3.axisBottom(x).ticks(8))
+                        .attr("color", "#aaa");
+
+                        
+                    // 設定顏色盤
+                    const color = d3.scaleOrdinal()
+                        .domain(keys)
+                        .range([
+                            "#00d2ff", "#3a7bd5", "#00b4db", "#7b4397", "#f3a183", 
+                            "#e15759", "#76b7b2", "#59a14f", "#edc949", "#af7aa1", "#9c755f"
+                        ]);
+
+                    // 使用 d3.stack 與 d3.stackOffsetWiggle 創造河流圖效果
+                    const stackedData = d3.stack()
+                        .offset(d3.stackOffsetWiggle)
+                        .keys(keys)(data);
+
+                    // 設定 Y 軸 (動態計算最大最小值)
+                    const y = d3.scaleLinear()
+                        .domain([
+                            d3.min(stackedData, layer => d3.min(layer, d => d[0])),
+                            d3.max(stackedData, layer => d3.max(layer, d => d[1]))
+                        ])
+                        .range([ height, 0 ]);
+
+                    // 定義面積生成器 (加上曲線平滑 d3.curveBasis)
+                    const area = d3.area()
+                        .x(d => x(d.data.date))
+                        .y0(d => y(d[0]))
+                        .y1(d => y(d[1]))
+                        .curve(d3.curveBasis);
+
+                    // 繪製河流路徑
+                    svg.selectAll("mylayers")
+                        .data(stackedData)
+                        .join("path")
+                        .attr("class", "myArea")
+                        .style("fill", d => color(d.key))
+                        .attr("d", area)
+                        // 加上滑鼠互動效果
+                        .on("mouseover", function (event, d) {
+                            d3.selectAll(".myArea").style("opacity", .2);
+                            d3.select(this).style("opacity", 1);
+                            tooltip.style("opacity", 1)
+                                    .html("產業: <b>" + d.key + "</b>");
+                        })
+                        .on("mousemove", function (event) {
+                            // 取得滑鼠相對於 #chart 容器的位置
+                            const [xPos, yPos] = d3.pointer(event, d3.select("#chart").node());
+                            tooltip.style("left", (xPos + 15) + "px")
+                                    .style("top", (yPos - 20) + "px");
+                        })
+                        .on("mouseleave", function (event, d) {
+                            d3.selectAll(".myArea").style("opacity", 1);
+                            tooltip.style("opacity", 0);
+                        });
+
+                    // --- 繪製圖例 (Legend) ---
+                    const legend = svg.selectAll(".legend")
+                        .data(keys)
+                        .join("g")
+                        .attr("class", "legend")
+                        // 將圖例定位到圖表右側，並根據索引 (i) 往下排列
+                        .attr("transform", (d, i) => `translate(${width + 20}, ${i * 25 + 20})`);
+
+                    // 加入顏色小方塊
+                    legend.append("rect")
+                        .attr("x", 0)
+                        .attr("width", 15)
+                        .attr("height", 15)
+                        .attr("rx", 3)
+                        .style("fill", d => color(d));
+
+                    // 加入產業名稱文字
+                    legend.append("text")
+                        .attr("x", 25)
+                        .attr("y", 7.5) // 垂直對齊方塊中心
+                        .attr("dy", "0.35em")
+                        .style("fill", "#cccccc")
+                        .style("font-size", "14px")
+                        .style("font-family", "sans-serif")
+                        .text(d => d);
+                });
+            }
+
             /**
              * 使用 D3.js 繪製長條圖 (修正 Height Error)
              */
@@ -2214,6 +2348,13 @@
                 document.querySelectorAll('.stock-tag-area').forEach(div => div.style.display = 'none');
                 // 顯示指定的
                 document.getElementById(`stock-tag-area-${type}`).style.display = 'flex';
+                console.log(type)
+                if (type == "Cap. Flow") {
+                    //如果使用者想看河流圖，則底下的主要區域先隱藏
+                    document.getElementById("tab-content").style.display = "none";
+                } else {
+                    document.getElementById("tab-content").style.display = "";
+                }
 
                 // 先全部頁籤 tab 取消 active 樣式
                 document.querySelectorAll('.stockTagTab').forEach(btn => {
@@ -2427,6 +2568,30 @@
 
             svg {
                 overflow: visible !important;
+            }
+
+            
+            [id="stock-tag-area-Cap. Flow"] {
+                background: #2a2a3f;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                position: relative;
+                display: inline-block; /* 讓容器貼合 SVG 大小 */
+                text-align: left;
+            }
+            .tooltip {
+                position: absolute;
+                text-align: center;
+                padding: 8px 12px;
+                font-size: 14px;
+                background: rgba(0, 0, 0, 0.85);
+                border: 1px solid #444;
+                color: #fff;
+                border-radius: 6px;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s;
+                z-index: 10;
             }
         </style>
     </head>
