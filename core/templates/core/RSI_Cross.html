@@ -2351,8 +2351,11 @@
                 console.log(type)
                 if (type == "Cap. Flow") {
                     //如果使用者想看河流圖，則底下的主要區域先隱藏
+                    document.getElementById("tab-header").style.display = "none";
                     document.getElementById("tab-content").style.display = "none";
+                    
                 } else {
+                    document.getElementById("tab-header").style.display = "";
                     document.getElementById("tab-content").style.display = "";
                 }
 
