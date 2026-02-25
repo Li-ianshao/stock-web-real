@@ -1698,12 +1698,35 @@
                     width = totalWidth - margin.left - margin.right,
                     height = 500 - margin.top - margin.bottom;
 
+                    // 1. 確保容器本身是垂直排列 (如果它是 Flex 容器)
+                    const container = d3.select('[id="stock-tag-area-Cap. Flow"]');
+                    container.style("display", "flex")
+                            .style("flex-direction", "column");
+
+                    // 2. 在 div 中加入標題 (H1)
+                    container.append("h1")
+                        .style("display", "block") // 強制為區塊元素
+                        .style("font-size", "36px")
+                        .style("font-weight", "bold")
+                        .style("margin", "0 auto") // 清除可能的干擾邊距
+                        .style("margin-bottom", "8px")
+                        .text("美股主要產業資金流動 (過去一年)");
+
+                    // 3. 在 div 中加入描述文字 (P)
+                    container.append("p")
+                        .style("display", "block") // 強制為區塊元素
+                        .style("font-size", "16px")
+                        .style("color", "#64748b")
+                        .style("margin", "0 auto")
+                        .style("margin-bottom", "20px")
+                        .html("資料來源: Yahoo Finance | 單位: <strong>Dollar Volume (Price × Volume)</strong>");
 
                 // 建立 SVG
                 const svg = d3.select('[id="stock-tag-area-Cap. Flow"]')
                 .append("svg")
                     .attr("width", totalWidth)
                     .attr("height", height + margin.top + margin.bottom)
+                    .style("margin", "0 auto")
                 .append("g")
                     .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -1781,7 +1804,7 @@
                         })
                         .on("mousemove", function (event) {
                             // 取得滑鼠相對於 #chart 容器的位置
-                            const [xPos, yPos] = d3.pointer(event, d3.select("#chart").node());
+                            const [xPos, yPos] = d3.pointer(event, d3.select('[id="stock-tag-area-Cap. Flow"]').node());
                             tooltip.style("left", (xPos + 15) + "px")
                                     .style("top", (yPos - 20) + "px");
                         })
@@ -1811,8 +1834,8 @@
                         .attr("x", 25)
                         .attr("y", 7.5) // 垂直對齊方塊中心
                         .attr("dy", "0.35em")
-                        .style("fill", "#cccccc")
-                        .style("font-size", "14px")
+                        .style("fill", "#121111")
+                        .style("font-size", "18px")
                         .style("font-family", "sans-serif")
                         .text(d => d);
                 });
