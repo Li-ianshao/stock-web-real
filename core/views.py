@@ -153,7 +153,47 @@ def get_flow_data(request):
             item[sector_name] = float(row[ticker]) if ticker in row else 0
         result.append(item)
         
-    return JsonResponse(result, safe=False)
+    # 將資料餵給AI並進行分析
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+    prompt = f"""
+        「你是一位專業的首席分析師。以下是美股 11 大產業的資金流動數據。請直接針對數據進行診斷分析，嚴禁在回覆中重複、列出或引用原始 JSON 數據。請直接以 Markdown 格式輸出分析重點，包含：1. 資金集中度、2. 異常波動、3. 產業輪動建議。」
+        
+        這是我過去一年美股 11 大產業的資金流動數據。
+
+        {result}
+        
+        請幫我分析：
+
+        目前市場的資金主要集中在哪三個板塊？這反映了什麼樣的投資人情緒？
+
+        觀察 2026 年 2 月的波峰，哪些產業擴張最明顯？結合當時的財報季，這是否具備持續性？
+
+        是否存在資金從防禦型（Utilities/Staples）轉向進攻型（Tech/Financials）的訊號？
+
+        根據資金流動趨勢，下一個季度我應該關注哪些潛在被低估或過熱的產業？」
+        """
+
+    try:
+        # 2026 年新版 SDK 呼叫方式
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
+        analysis_result = response.text
+        
+    except Exception as e:
+        if "429" in str(e):
+            analysis_result = "### ⚠️ 流量限制\n免費版請求太快，請等一分鐘再試。"
+        else:
+            analysis_result = f"### ❌ API 呼叫失敗\n{str(e)}"
+
+    print("AI分析")
+    print(analysis_result)
+    return JsonResponse({
+        'data': result,
+        'aiResponse': analysis_result
+    }, safe=False)
 
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")

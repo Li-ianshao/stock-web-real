@@ -9,6 +9,7 @@
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <script>
             let activeTab = null;
+            let activeTag = null;
             const stockContentDict = {};
             const price_data_saved = {};
             const dividends_saved = {};
@@ -68,6 +69,12 @@
 
                 tabHeader.appendChild(newTab);
                 input.value = '';
+                if (activeTag == "Cap. Flow") {
+                    showStockTagArea("RSI_Xover_30")
+                } else {
+                    showStockTagArea(activeTag)
+                }
+                
                 addOrSwitchTab(symbol)
             }
 
@@ -78,13 +85,36 @@
                 }
                 return "text-gray-800";
             }
+
             
             function renderAllStockTags(data,update_time) {
                 Object.keys(data).forEach(category => {
                     // 確保有一個區域，若沒有自動建立
                     let tagArea = document.getElementById('stock-tag-area-' + category);
                     const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
-                    if (!tagArea) {
+
+                    if (category == "Cap. Flow") {
+                        if (!tagArea) {
+                            // 自動建立區塊並增加頁籤
+                            tagHeader = document.createElement("button");
+                            tagHeader.className = "px-8 py-3 text-xl font-bold text-white hover:bg-slate-700 rounded-xl transition-all duration-300 stockTagTab";
+                            tagHeader.onclick = function() {
+                                showStockTagArea(category);
+                            };
+                            tagHeader.id = "stock-tag-tab-" + category;
+                            tagHeader.innerText = category;
+
+                            tagArea = document.createElement('div');
+                            tagArea.id = 'stock-tag-area-' + category;
+                            tagArea.className = `stock-tag-area flex flex-wrap gap-3 p-4 bg-red-50/50 rounded-xl border border-red-100 w-full justify-center`;
+                            tagArea.style = "display:none"
+
+                            document.getElementById('stock-tag-tabs').appendChild(tagHeader);
+                            document.getElementById('tag-areas').appendChild(tagArea); // 你可指定插入在你想要的容器下
+                        }
+                        
+                        return
+                    } else if (!tagArea) {
                         // 自動建立區塊並增加頁籤
                         tagHeader = document.createElement("button");
                         tagHeader.className = "px-8 py-3 text-xl font-bold text-white hover:bg-slate-700 rounded-xl transition-all duration-300 stockTagTab";
@@ -104,12 +134,7 @@
                     } else {
                         tagArea.innerHTML = "";// 先清空
                     }
-
-                    if (category == "Cap. Flow" && document.getElementById("stock-tag-area-Cap. Flow")) {
-                        //如果是Cap Flow則不需要插入股票標籤，改為插入河流圖
-                        drawFlowChart()
-                        return
-                    }
+                    
                     
                     // 產生標籤
                     data[category].forEach(symbolItem => {
@@ -874,6 +899,13 @@
                 .then(data => {
                     date = new Date(data.update_time * 1000)
                     renderAllStockTags(data=data.data,update_time=date)
+                    //檢查河流圖是否已經建立，如沒有就執行繪製程序
+                    // 為了不卡住其他頁籤的建立，所以將會至程序拉出獨立執行
+                    const container = document.getElementById("stock-tag-area-Cap. Flow").querySelector("h1");
+                    if (!container) {
+                        console.log("還沒建立FlowChart")
+                        drawFlowChart()
+                    }
                 });
             }
 
@@ -1738,8 +1770,57 @@
                 // 解析日期的函數
                 const parseDate = d3.timeParse("%Y-%m-%d");
 
+                const aiAnalysisBox = container.append("div")
+                    .attr("id", "ai-analysis-content")
+                    .style("width", "90%")
+                    .style("max-width", "1200px")
+                    .style("background-color", "#f8fafc")
+                    .style("border", "1px solid #e2e8f0")
+                    .style("border-radius", "12px")
+                    .style("padding", "25px")
+                    .style("margin", "0 auto 40px auto")
+                    // --- 新增滾動條相關設定 ---
+                    .style("max-height", "400px")       // 設定最大高度
+                    .style("overflow-y", "auto")        // 內容超出時顯示垂直滾動條
+                    .style("scrollbar-width", "thin")   // (選填) 讓滾動條在 Firefox 下變細
+                    .style("text-align", "left");
+                    
+
+                    // 5. 插入初始狀態或標題
+                    aiAnalysisBox.append("h3")
+                        .style("font-size", "18px")
+                        .style("margin-top", "0")
+                        .style("margin-bottom", "12px")
+                        .style("color", "#0f172a")
+                        .html("🤖 AI 資金流向診斷報告");
+
+                    aiAnalysisBox.append("div")
+                        .attr("id", "ai-text-target")
+                        .style("color", "#334155")
+                        .style("line-height", "1.7")
+                        .style("font-size", "15px")
+                        .html("<em>正在分析板塊動態中，請稍候...</em>"); // 預設 loading 狀態
+
+                    const aiTarget = document.getElementById("ai-text-target");
+
+                    if (aiTarget) {
+                        // 注入等待動畫與文字
+                        aiTarget.innerHTML = `
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+                                <div class="loading-spinner"></div>
+                                <div class="loading-text">🤖 AI 正在深入分析產業河流圖，請稍候...</div>
+                            </div>
+                        `;
+                        
+                    }
+
+
+
                 // 呼叫 Django API 獲取資料
-                d3.json("/core/api/flow_data/").then(function(data) {
+                d3.json("/core/api/flow_data/").then(function(rawData) {
+                    console.log(rawData)
+                    data = rawData.data;
+                    aiResponse = rawData.aiResponse;
                     
                     // 轉換日期字串為 Date 物件
                     data.forEach(d => {
@@ -1838,6 +1919,17 @@
                         .style("font-size", "18px")
                         .style("font-family", "sans-serif")
                         .text(d => d);
+
+                    // 2. 注入 AI 回應內容
+                    aiTarget.innerHTML = aiResponse;
+
+                    // 3. 強調：確保文字大且清晰的樣式設定
+                    aiTarget.style.fontSize = "18px";         // 放大字體，適合閱讀報告
+                    aiTarget.style.lineHeight = "1.8";       // 增加行距，避免文字擠在一起
+                    aiTarget.style.color = "#1e293b";        // 使用高對比度的深靛藍色
+                    aiTarget.style.fontWeight = "400";       // 標準粗細，確保清晰度
+                    aiTarget.style.whiteSpace = "pre-wrap";  // 保留 AI 回傳的換行格式
+                    
                 });
             }
 
@@ -2367,11 +2459,11 @@
             });
 
             function showStockTagArea(type) {
+                activeTag = type
                 // 隱藏全部 stock-tag 區
                 document.querySelectorAll('.stock-tag-area').forEach(div => div.style.display = 'none');
                 // 顯示指定的
                 document.getElementById(`stock-tag-area-${type}`).style.display = 'flex';
-                console.log(type)
                 if (type == "Cap. Flow") {
                     //如果使用者想看河流圖，則底下的主要區域先隱藏
                     document.getElementById("tab-header").style.display = "none";
@@ -2618,6 +2710,31 @@
                 opacity: 0;
                 transition: opacity 0.2s;
                 z-index: 10;
+            }
+
+            /* 轉圈圈動畫本體 */
+            .loading-spinner {
+                width: 40px;
+                height: 40px;
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #3a7bd5; /* 使用您河流圖的藍色系 */
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 20px auto;
+            }
+
+            /* 轉圈動畫效果 */
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+
+            /* 提示文字樣式 */
+            .loading-text {
+                font-size: 16px;
+                color: #64748b;
+                font-weight: 500;
+                margin-top: 10px;
             }
         </style>
     </head>
