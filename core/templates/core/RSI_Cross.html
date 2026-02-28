@@ -481,6 +481,27 @@
                                 
                             </div>
                         </div>
+                        <!-- 📈 SEC分析區塊 -->
+                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                                <h3 class="text-lg font-semibold text-gray-800">📈 SEC分析</h3>
+                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                            </div>
+                            <div x-show="open" class="mt-4 space-y-4">
+                                <div id="ai-quick-actions" class="flex flex-wrap gap-2 mt-auto border-t border-slate-100 pt-4">
+                                    <button onclick="analyzeSEC()" 
+                                            class="px-4 py-2 bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 hover:border-blue-400 rounded-2xl text-xs font-semibold transition-all duration-300 shadow-sm flex items-center gap-2 group">
+                                        <span>🔍</span> 執行 SEC 深度分析
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-5px] group-hover:translate-x-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div id="sec-response" class="flex flex-wrap gap-2 mt-auto border-t border-slate-100 pt-4">
+                                    
+                                </div>
+                            </div>
+                        </div>
                         <!-- 📄 基本面分析區塊 -->
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
                             <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
@@ -2515,6 +2536,69 @@
             })
 
 
+            function analyzeSEC() {
+
+                symbol = findActiveStockTab()
+
+                const secTarget = document.getElementById("sec-response");
+
+                if (secTarget) {
+                    // 1. 確保區塊可見
+                    secTarget.classList.remove('hidden');
+                    
+                    // 2. 注入轉圈圈與提示文字
+                    secTarget.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-8 bg-blue-50/30 rounded-xl border border-dashed border-blue-200">
+                            <div class="relative">
+                                <div class="w-10 h-10 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin"></div>
+                                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                            </div>
+                            <div class="mt-4 text-center">
+                                <p class="text-sm font-bold text-blue-600 tracking-wide">🤖 AI 深度財報診斷中</p>
+                                <p class="text-[11px] text-slate-400 mt-1">正在掃描 SEC 10-K 文件與風險披露...</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 3. 讓畫面自動捲動到這個等待區塊
+                    secTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
+                fetch(`/core/api/sec/${symbol}/`)
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log("SEC 分析")
+                        console.log(data)
+                        // 1. 選取目標區塊
+                        
+
+                        if (secTarget) {
+                            // 2. 注入 AI 回應內容
+                            // 如果後端回傳的是 HTML 格式，使用 innerHTML；如果是純文字，建議先處理換行
+                            secTarget.innerHTML = data.AI_response;
+
+                            // 3. 設定專業報告樣式：確保大字體、高對比與清晰行距
+                            secTarget.style.fontSize = "18px";          // 放大字體，提升閱讀體驗
+                            secTarget.style.lineHeight = "1.8";        // 增加行高，避免視覺擁擠
+                            secTarget.style.color = "#1e293b";         // 使用深色調確保高對比度
+                            secTarget.style.whiteSpace = "pre-wrap";   // 自動處理 AI 回傳的換行符號 (\n)
+                            secTarget.style.textAlign = "left";        // 確保長篇分析向左對齊方便掃視
+                        }
+                    })
+            }
+
+
+            function findActiveStockTab () {
+                // 2. 找出目前 active 的股票代碼 (由您的 div id 決定)
+                const activeArea = document.querySelector('.tab.active');
+                if (!activeArea) {
+                    alert("請先選擇一個股票分頁！");
+                    return;
+                }
+                const symbol = activeArea.id.replace('tab-', '');
+
+                return symbol
+            }
 
             var aiAnalysisCache = {};
             function runStockAnalysis() {
@@ -2526,15 +2610,8 @@
                 const dividendSection = document.getElementById('dividend-section');
                 const today = new Date().toISOString().split('T')[0]; // 格式：2026-02-18
 
-                // 2. 找出目前 active 的股票代碼 (由您的 div id 決定)
-                const activeArea = document.querySelector('.tab.active');
-                if (!activeArea) {
-                    alert("請先選擇一個股票分頁！");
-                    return;
-                }
-                const symbol = activeArea.id.replace('tab-', '');
+                symbol = findActiveStockTab()
 
-                
                 aiContent.innerHTML = `
                     <div class="flex items-center gap-2 text-blue-600 font-bold">
                         <span class="animate-ping h-2 w-2 rounded-full bg-blue-400"></span>
@@ -2572,7 +2649,7 @@
             function toggleAI() {
                 const modal = document.getElementById('ai-modal');
                 const content = document.getElementById('ai-content');
-                
+
                 if (modal.classList.contains('hidden')) {
                     // 展開動畫
                     modal.classList.remove('hidden');
@@ -2771,6 +2848,7 @@
                     <div id="ai-content" class="prose max-w-none text-slate-800">
                         <p class="italic text-slate-400">請點擊下方股票標籤，我將為您生成即時分析報告...</p>
                     </div>
+                    
                 </div>
             </div>
         </div>
@@ -2819,6 +2897,7 @@
             <!-- 導覽列 -->
             <div class="bg-gray-200 px-4 pt-4 pb-1 rounded-t-xl">
                 <div id="tab-header" class="flex space-x-2 overflow-x-auto overflow-hidden"></div>
+                
             </div>
 
             <!-- 內容區 -->

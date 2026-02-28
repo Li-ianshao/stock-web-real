@@ -33,6 +33,7 @@ import time
 import requests
 from core.DivindendChartGenerator import get_dividend_chart_base64
 import yfinance as yf
+from bs4 import BeautifulSoup
 
 #print(load_sp500_symbols()) 有抓到S&P500清單
 
@@ -358,6 +359,125 @@ def stock_analysis_view(request, symbol):
         'analysis_result': analysis_result
     })
 
+USER_AGENT = "Shin Chung Shao (scshao@infodoc.com.tw)" # SEC 規定必須包含姓名與 Email
+    
+def get_cik_by_symbol(symbol):
+    # SEC 要求的 API 路徑
+    url = "https://www.sec.gov/files/company_tickers.json"
+    
+    # ⚠️ SEC 規定必須提供 User-Agent，否則會被阻斷
+    headers = {
+        'User-Agent': USER_AGENT 
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        
+        # 將輸入的 Symbol 轉為大寫，避免大小寫不一的問題
+        target_symbol = symbol.upper()
+        
+        # 在 JSON 中尋找對應的 CIK
+        for item in data.values():
+            if item['ticker'] == target_symbol:
+                # 取得 CIK 並強制補足 10 位數
+                return str(item['cik_str']).zfill(10)
+        
+        print(f"找不到 Symbol: {target_symbol}")
+        return None
+        
+    except Exception as e:
+        print(f"獲取 SEC 資料發生錯誤: {e}")
+        return None
+
+def stock_sec_AI_api(request, symbol):
+
+    cik = get_cik_by_symbol(symbol)
+
+    sec = stock_sec_api(cik)
+
+    # print("正在解析內容並交給 Gemini 分析...")
+    soup = BeautifulSoup(sec, 'html.parser')
+    
+    # 移除干擾元素
+    for s in soup(['script', 'style']):
+        s.decompose()
+        
+    clean_text = soup.get_text(separator=' ', strip=True)
+
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    
+    #傳給 Gemini (取前 500,000 字元)
+    prompt = f"""
+    你是一位專業的證券分析師。請根據以下 {symbol} 10-K 報表內容，產出一份給投資人的摘要：
+    1. 營收與獲利：去年表現如何？
+    2. 業務重點：雲端與 AI 業務的成長數據。
+    3. 自由現金流：數據為何？是否足以支付股利？
+    4. 潛在風險：管理層最擔心的三個問題。
+    
+    報表內容：
+    {clean_text[:500000]}
+    """
+    
+    try:
+        # 2026 年新版 SDK 呼叫方式
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
+        analysis_result = response.text
+    except Exception as e:
+        if "429" in str(e):
+            analysis_result = "### ⚠️ 流量限制\n免費版請求太快，請等一分鐘再試。"
+        else:
+            analysis_result = f"### ❌ API 呼叫失敗\n{str(e)}"
+
+    return JsonResponse({
+            "symbol": symbol,
+            "cik": cik,
+            "sec": clean_text,
+            "AI_response" : analysis_result
+        })
+
+
+# SEC分析
+def stock_sec_api(cik):
+
+    print("正在透過 SEC 官方 API 搜尋 IBM 最新報表...")
+    headers = {'User-Agent': USER_AGENT}
+    
+    # 步驟 A: 取得 IBM 的所有報表清單
+    # SEC 提供 JSON 格式的索引資料
+    url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code != 200:
+        raise Exception(f"無法存取 SEC 資料，狀態碼: {response.status_code}。請檢查 Email 格式。")
+    
+    data = response.json()
+    filings = data['filings']['recent']
+    
+    # 步驟 B: 尋找最近的一個 '10-K'
+    target_index = -1
+    for i, form in enumerate(filings['form']):
+        if form == '10-K':
+            target_index = i
+            break
+            
+    if target_index == -1:
+        raise Exception("找不到 IBM 的 10-K 報表。")
+
+    acc_num = filings['accessionNumber'][target_index].replace('-', '')
+    doc_name = filings['primaryDocument'][target_index]
+    
+    # 步驟 C: 建立檔案下載連結
+    # 格式: https://www.sec.gov/Archives/edgar/data/{CIK}/{AccNum}/{DocName}
+    file_url = f"https://www.sec.gov/Archives/edgar/data/{cik.strip('0')}/{acc_num}/{doc_name}"
+    
+    print(f"正在下載報表文件: {file_url}")
+    file_response = requests.get(file_url, headers=headers)
+    return file_response.text
     
 
 def get_form4_data(symbol: str, from_date: str = None, to_date: str = None, with_sentiment: bool = False):
