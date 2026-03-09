@@ -69,6 +69,7 @@ def stock_price_api(request, symbol):
     """
     提供給前端呼叫的 API View
     """
+    print('get newest price')
     price_data = get_latest_stock_price(symbol)
     
     if price_data:
@@ -139,7 +140,8 @@ def get_flow_data(request):
     # yfinance 回傳的多層級 MultiIndex DataFrame: data['Close']['XLK']
     df_close = data['Close']
     df_volume = data['Volume']
-    df_flow = df_close * df_volume
+    # 只取到倒數第二行，確保資料是完全「封存」的歷史資料
+    df_flow = (df_close * df_volume).iloc[:-1]
     
     # 處理缺失值
     df_flow = df_flow.fillna(0)
@@ -176,11 +178,12 @@ def get_flow_data(request):
         """
 
     try:
-        # 2026 年新版 SDK 呼叫方式
+        #2026 年新版 SDK 呼叫方式
         response = client.models.generate_content(
             model='gemini-2.0-flash',
             contents=prompt
         )
+        
         analysis_result = response.text
         
     except Exception as e:

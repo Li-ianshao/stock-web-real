@@ -88,6 +88,8 @@
 
             
             function renderAllStockTags(data,update_time) {
+                console.log("activeTag")
+                console.log(activeTag)
                 Object.keys(data).forEach(category => {
                     // 確保有一個區域，若沒有自動建立
                     let tagArea = document.getElementById('stock-tag-area-' + category);
@@ -241,7 +243,12 @@
                         document.getElementById("update-info").innerText = "資料更新時間："+update_time;
                     });
                 });
-                showStockTagArea(Object.keys(data)[0]);
+                if (activeTag) {
+                    showStockTagArea(activeTag);
+                } else {
+                    showStockTagArea(Object.keys(data)[0]);
+                }
+                
             }
 
             function handleDrop(e) {
@@ -279,12 +286,6 @@
 
                     tabHeader.appendChild(tab);
 
-                    // tab = document.createElement('button');
-                    // tab.className = 'tab px-4 py-2 rounded-t bg-gray-100 font-medium';
-                    // tab.id = `tab-${symbol}`;
-                    // tab.innerText = symbol;
-                    // tab.onclick = () => addOrSwitchTab(symbol);
-                    // document.getElementById('tab-header').appendChild(tab);
                 }
                 tab.classList.add('active', 'bg-white', 'font-bold');
 
@@ -897,7 +898,8 @@
                 
             }
 
-            function fetchNewestClose (symbol) {
+            function fetchNewestClose () {
+                let symbol = activeTab
                 fetch(`/core/api/stock-price/${symbol}/`)
                 .then(response => response.json())
                 .then(data => {
@@ -924,7 +926,6 @@
                     // 為了不卡住其他頁籤的建立，所以將會至程序拉出獨立執行
                     const container = document.getElementById("stock-tag-area-Cap. Flow").querySelector("h1");
                     if (!container) {
-                        console.log("還沒建立FlowChart")
                         drawFlowChart()
                     }
                 });
@@ -954,8 +955,9 @@
             return div;
             }
 
-            setInterval(fetchData, 300000);
-            setInterval(fetchNewestClose(activeTab), 50000);
+            
+            setInterval(fetchData, 600000);
+            setInterval(fetchNewestClose, 300000);
             
 
             // 安全轉義（避免把原文注入成 HTML）
