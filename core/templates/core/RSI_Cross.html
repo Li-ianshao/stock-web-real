@@ -1060,19 +1060,30 @@
                     .nice()
                     .range([height, 0]);
                 // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
                 svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(
-                        d3.axisBottom(x)
+                .attr("transform", `translate(0,${height})`)
+                .call(
+                    d3.axisBottom(x)
                         .tickValues(
                             x.domain().filter((d, i, arr) => {
-                            const n = arr.length;
-                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                                // 1. 第一筆資料一定要顯示
+                                if (i === 0) return true;
+                                
+                                // 2. 轉換為 Date 物件（確保能抓到月份）
+                                const curr = new Date(d);
+                                const prev = new Date(arr[i - 1]);
+                                
+                                // 3. ✨ 核心邏輯：如果這週的「月份」跟上週不同，代表跨月了，顯示它
+                                return curr.getMonth() !== prev.getMonth();
                             })
                         )
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
+                        .tickFormat(d3.timeFormat("%y/%m")) // 格式化為 25/03
+                )
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
                 svg.append("g")
                     .call(d3.axisLeft(y));
                 // 蠟燭圖本體
@@ -1111,6 +1122,24 @@
                     .defined(d => d.lower_band !== null && !isNaN(d.lower_band))
                     .x(d => x(d.date) + x.bandwidth()/2)
                     .y(d => y(d.lower_band));
+
+                const xScale = d3.scaleTime()
+                    // d3.extent 會幫你抓出這 3 年資料的最早跟最晚日期
+                    .domain(d3.extent(data, d => d.date)) 
+                    .range([0, width]); // 映射到畫布寬度
+
+                // --- 建立每月垂直格線 ---
+                const xGrid = d3.axisBottom(xScale)
+                    .ticks(d3.timeMonth.every(1)) // 強制設定為每 1 個月一個刻度
+                    .tickSize(-height)           // 關鍵：將線段長度設為負的高度，使其向上延伸
+                    .tickFormat("");             // 隱藏格線旁的文字，避免與原有的 X 軸標籤重疊
+
+                // 將格線加入到 SVG 中（建議放在河流路徑的「下方」，避免遮擋顏色）
+                svg.append("g")
+                    .attr("class", "grid-lines")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(xGrid)
+                    .call(g => g.select(".domain").remove()); // 移除格線底部的橫線，只保留垂直線
 
                 svg.append("path")
                     .datum(data)
@@ -1482,19 +1511,30 @@
                     .range([height, 0]);
 
                 // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
                 svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(
-                        d3.axisBottom(x)
+                .attr("transform", `translate(0,${height})`)
+                .call(
+                    d3.axisBottom(x)
                         .tickValues(
                             x.domain().filter((d, i, arr) => {
-                            const n = arr.length;
-                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                                // 1. 第一筆資料一定要顯示
+                                if (i === 0) return true;
+                                
+                                // 2. 轉換為 Date 物件（確保能抓到月份）
+                                const curr = new Date(d);
+                                const prev = new Date(arr[i - 1]);
+                                
+                                // 3. ✨ 核心邏輯：如果這週的「月份」跟上週不同，代表跨月了，顯示它
+                                return curr.getMonth() !== prev.getMonth();
                             })
                         )
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
+                        .tickFormat(d3.timeFormat("%y/%m")) // 格式化為 25/03
+                )
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
                 svg.append("g")
                     .call(d3.axisLeft(y).tickFormat(d3.format(".2s")));// 2 位數 + 縮寫（K/M/B）
 
@@ -1507,6 +1547,25 @@
                     .attr("width", x.bandwidth())
                     .attr("height", d => height - y(d.Volume))
                     .attr("fill", "#4a90e2");
+
+                const xScale = d3.scaleTime()
+                    // d3.extent 會幫你抓出這 3 年資料的最早跟最晚日期
+                    .domain(d3.extent(data, d => d.date)) 
+                    .range([0, width]); // 映射到畫布寬度
+
+                // --- 建立每月垂直格線 ---
+                const xGrid = d3.axisBottom(xScale)
+                    .ticks(d3.timeMonth.every(1)) // 強制設定為每 1 個月一個刻度
+                    .tickSize(-height)           // 關鍵：將線段長度設為負的高度，使其向上延伸
+                    .tickFormat("");             // 隱藏格線旁的文字，避免與原有的 X 軸標籤重疊
+
+                // 將格線加入到 SVG 中（建議放在河流路徑的「下方」，避免遮擋顏色）
+                svg.append("g")
+                    .attr("class", "grid-lines")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(xGrid)
+                    .call(g => g.select(".domain").remove()); // 移除格線底部的橫線，只保留垂直線
+
 
                 // 十字線共用邏輯（重複使用）
                 const crosshairV = svg.append("line")
@@ -1609,19 +1668,30 @@
                     .range([height, 0]);
 
                 // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
                 svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(
-                        d3.axisBottom(x)
+                .attr("transform", `translate(0,${height})`)
+                .call(
+                    d3.axisBottom(x)
                         .tickValues(
                             x.domain().filter((d, i, arr) => {
-                            const n = arr.length;
-                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                                // 1. 第一筆資料一定要顯示
+                                if (i === 0) return true;
+                                
+                                // 2. 轉換為 Date 物件（確保能抓到月份）
+                                const curr = new Date(d);
+                                const prev = new Date(arr[i - 1]);
+                                
+                                // 3. ✨ 核心邏輯：如果這週的「月份」跟上週不同，代表跨月了，顯示它
+                                return curr.getMonth() !== prev.getMonth();
                             })
                         )
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
+                        .tickFormat(d3.timeFormat("%y/%m")) // 格式化為 25/03
+                )
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
                 svg.append("g")
                     .call(d3.axisLeft(y));
 
@@ -1674,6 +1744,25 @@
                     .attr("font-size", "10px")
                     .attr("transform", d => `rotate(-90, ${x(d.date) + x.bandwidth()/2}, ${y(d.rsi) + 70})`)
                     .text(d => d3.timeFormat("%Y-%m-%d")(d.date));
+
+                const xScale = d3.scaleTime()
+                    // d3.extent 會幫你抓出這 3 年資料的最早跟最晚日期
+                    .domain(d3.extent(data, d => d.date)) 
+                    .range([0, width]); // 映射到畫布寬度
+
+                // --- 建立每月垂直格線 ---
+                const xGrid = d3.axisBottom(xScale)
+                    .ticks(d3.timeMonth.every(1)) // 強制設定為每 1 個月一個刻度
+                    .tickSize(-height)           // 關鍵：將線段長度設為負的高度，使其向上延伸
+                    .tickFormat("");             // 隱藏格線旁的文字，避免與原有的 X 軸標籤重疊
+
+                // 將格線加入到 SVG 中（建議放在河流路徑的「下方」，避免遮擋顏色）
+                svg.append("g")
+                    .attr("class", "grid-lines")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(xGrid)
+                    .call(g => g.select(".domain").remove()); // 移除格線底部的橫線，只保留垂直線
+
 
                 // 十字線
                 const crosshairV = svg.append("line")
@@ -2219,21 +2308,51 @@
                     .range([height, 0]);
 
                 // X軸 & Y軸
-                const filteredDates = x.domain().filter((d, i) => i % 5 === 0);  // 每隔一個顯示一次
                 svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(
-                        d3.axisBottom(x)
+                .attr("transform", `translate(0,${height})`)
+                .call(
+                    d3.axisBottom(x)
                         .tickValues(
                             x.domain().filter((d, i, arr) => {
-                            const n = arr.length;
-                            return i % Math.ceil(n / 10) === 0; // 最多顯示10個label
+                                // 1. 第一筆資料一定要顯示
+                                if (i === 0) return true;
+                                
+                                // 2. 轉換為 Date 物件（確保能抓到月份）
+                                const curr = new Date(d);
+                                const prev = new Date(arr[i - 1]);
+                                
+                                // 3. ✨ 核心邏輯：如果這週的「月份」跟上週不同，代表跨月了，顯示它
+                                return curr.getMonth() !== prev.getMonth();
                             })
                         )
-                        .tickFormat(d3.timeFormat("%m/%d"))
-                    );
+                        .tickFormat(d3.timeFormat("%y/%m")) // 格式化為 25/03
+                )
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
                 svg.append("g")
                     .call(d3.axisLeft(y));
+
+                const xScale = d3.scaleTime()
+                    // d3.extent 會幫你抓出這 3 年資料的最早跟最晚日期
+                    .domain(d3.extent(data, d => d.date)) 
+                    .range([0, width]); // 映射到畫布寬度
+
+                // --- 建立每月垂直格線 ---
+                const xGrid = d3.axisBottom(xScale)
+                    .ticks(d3.timeMonth.every(1)) // 強制設定為每 1 個月一個刻度
+                    .tickSize(-height)           // 關鍵：將線段長度設為負的高度，使其向上延伸
+                    .tickFormat("");             // 隱藏格線旁的文字，避免與原有的 X 軸標籤重疊
+
+                // 將格線加入到 SVG 中（建議放在河流路徑的「下方」，避免遮擋顏色）
+                svg.append("g")
+                    .attr("class", "grid-lines")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(xGrid)
+                    .call(g => g.select(".domain").remove()); // 移除格線底部的橫線，只保留垂直線
+
 
                 // 0 軸線
                 svg.append("line")
@@ -2814,6 +2933,14 @@
                 color: #64748b;
                 font-weight: 500;
                 margin-top: 10px;
+            }
+
+            /* 修改 CSS 樣式 */
+            .grid-lines line {
+                stroke: #cbd5e1;          /* 換成較深的藍灰色 (Tailwind slate-300) */
+                stroke-opacity: 0.8;      /* 提高不透明度 */
+                stroke-width: 1.2px;      /* 稍微加粗 */
+                stroke-dasharray: 2, 2;   /* 變成更密的點狀線，視覺上更連續 */
             }
         </style>
     </head>
