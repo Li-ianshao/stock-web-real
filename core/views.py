@@ -605,7 +605,7 @@ def translate_news_items(news_items, to_lang="zh-Hant"):
 def stock_api(request, symbol):
     symbol = symbol.upper()
     period = '10y'
-    stock_data = fetch_stock_data([symbol], period='1y')
+    stock_data = fetch_stock_data([symbol], period='3y')
 
     short_interest = stock_data[symbol]['info'].get("sharesShort", None)   # 放空股數
     short_ratio = stock_data[symbol]['info'].get("shortRatio", None)       # 放空比率
