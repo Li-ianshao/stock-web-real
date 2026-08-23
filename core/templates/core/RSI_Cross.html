@@ -11,6 +11,7 @@
             let activeTab = null;
             let activeTag = null;
             const stockContentDict = {};
+            const stockInfoDict = {};
             const price_data_saved = {};
             const dividends_saved = {};
             const div_chart = {};
@@ -261,6 +262,258 @@
             }
 
             function addOrSwitchTab(symbol, category = '') {
+                console.log("addOrSwitchTab")
+                console.log(symbol)
+
+                const contentDiv = document.getElementById('tab-content');
+                
+                // 標籤樣式管理
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
+                let tab = document.getElementById(`tab-${symbol}`);
+                if (!tab) {
+                    // 新增 tab
+                    tabHeader = document.getElementById('tab-header');
+                    tab = document.createElement('div');
+                    tab.id = `tab-${symbol}`;
+                    tab.className = "relative tab";
+                    
+
+                    tab.innerHTML = `
+                    <button onclick="addOrSwitchTab('${symbol}')"
+                            class="px-6 py-3 text-sm font-medium rounded-t-xl rounded-b-none shadow-md border border-gray-300 border-b-0 z-10 tabBottom relative -mb-[1px]">
+                        ${symbol}
+                    </button>
+                    <button onclick="closeTab('${symbol}')"
+                            class="absolute top-0.3 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-5 text-center shadow hover:bg-red-600 z-50">
+                        ×
+                    </button>
+                    `;
+
+                    tabHeader.appendChild(tab);
+
+                }
+                tab.classList.add('active', 'bg-white', 'font-bold');
+
+                checkAndSyncAI();
+
+                activeTab = symbol;
+
+                if (stockContentDict[symbol]) {
+                    console.log("舊")
+                    // 有快取就直接顯示
+                    contentDiv.innerHTML = stockContentDict[symbol];
+                    priceData = price_data_saved[symbol]
+                    dividends = dividends_saved[symbol]
+                    // 呼叫畫圖
+                    drawMACDChart(priceData);
+
+                    drawRSIChart(priceData);
+
+                    drawVolumeChart(priceData);
+
+                    drawCandleChart(priceData,dividends);
+                   
+                }else {
+                    LoadTech(symbol);
+                }
+
+                
+                
+            }
+
+
+            function LoadTech(symbol){
+                // 內容 div
+                const contentDiv = document.getElementById('tab-content');
+                console.log("新")
+                // 還沒載入時先顯示 loading
+                contentDiv.innerHTML = `<p class="text-gray-500">載入 ${symbol} 資料中...</p>`;
+                fetch(`/core/api/stock/${symbol}/hist/`)
+                .then(res => res.json())
+                .then(data => {
+                    const priceData = data.price_data;
+                    const dividends = data.dividends;
+                    const content = document.getElementById('tab-content');
+                    console.log(data)
+
+                    const imgHTML = `
+                    <h2 class="text-xl font-bold mb-2">${data.symbol} RSI 策略分析</h2>
+                    <!-- 📄 公司描述區塊 -->
+                    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                        <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                            <h3 class="text-lg font-semibold text-gray-800">📄 現價</h3>
+                        </div>
+                        <div x-show="open" class="mt-4 text-gray-700">
+                            <!-- 價格與漲跌幅展示區塊 -->
+                            <div class="flex flex-col gap-1 p-2">
+                            <div class="flex items-baseline gap-3">
+                                <!-- 目前收盤價 (加大加粗) -->
+                                <span id="price-${data.symbol}" class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+                                --
+                                </span>
+
+                                <!-- 今日即時漲跌幅 (膠囊標籤) -->
+                                <span id="priceChange-${data.symbol}" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xl font-semibold tracking-wide transition-colors duration-300">
+                                --
+                                </span>
+                            </div>
+
+                            <!-- 提示標籤：標註為最新收盤/即時更新 -->
+                            <div class="flex items-center gap-1.5 text-base text-slate-400 dark:text-slate-500">
+                                <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>即時行情 / 收盤更新</span>
+                            </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 📈 技術圖表區塊 -->
+                    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                        <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                            <h3 class="text-lg font-semibold text-gray-800">📈 技術圖表分析</h3>
+                            <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
+                        </div>
+                        <div x-show="open" class="mt-4 space-y-4">
+
+                            <!-- 📈 股價變動與布林通道 圖區塊 -->
+                            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                    <div>
+                                    <h3 class="text-base font-semibold text-gray-800">🕯️ 股價變動圖與布林通道（BBands）</h3>
+                                    <p class="text-sm text-gray-500">顯示每日股價開盤、收盤、高低點與布林通道，幫助判斷股價波動範圍與壓力支撐位置。</p>
+                                    </div>
+                                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                </div>
+
+                                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                    <div id="chart-candle" class="relative w-full h-[700px] bg-white">
+                                        <div id="candle-tooltip" style="min-width: 120px; max-width: 110px; max-height: 95px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 📈 RSI 圖區塊 -->
+                            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                    <div>
+                                    <h3 class="text-base font-semibold text-gray-800">📈 RSI 相對強弱指標</h3>
+                                    <p class="text-sm text-gray-500">判斷股票是否過熱（超買）或過冷（超賣）</p>
+                                    </div>
+                                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                </div>
+
+                                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                    <div id="chart-rsi" class="relative w-full h-[700px] bg-white">
+                                        <div id="rsi-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 📈 MACD 圖區塊 -->
+                            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                    <div>
+                                    <h3 class="text-base font-semibold text-gray-800">📉 MACD 指標</h3>
+                                    <p class="text-sm text-gray-500">結合快速線與慢速線觀察多空轉折。柱狀圖顯示多空動能變化，線條交叉通常預示可能的趨勢反轉。</p>
+                                    </div>
+                                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                </div>
+
+                                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                    <div id="chart-macd" class="relative w-full h-[700px] bg-white mt-8">
+                                        <div id="macd-tooltip" style="min-width: 120px; max-width: 110px; max-height: 75px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
+                                    </div>
+                                </div>
+                            </div>o
+                            <!-- 📈 交易量 圖區塊 -->
+                            <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                                <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
+                                    <div>
+                                    <h3 class="text-base font-semibold text-gray-800">📊 成交量（Volume）</h3>
+                                    <p class="text-sm text-gray-500">呈現每日交易量，用來觀察市場活躍度與價量背離狀況。大量交易通常代表多空拉鋸或趨勢確認。</p>
+                                    </div>
+                                    <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
+                                </div>
+
+                                <div x-show="open" class="transition-all duration-200 overflow-hidden">
+                                    <div id="chart-volume" class="relative w-full h-[700px] bg-white mt-8">
+                                        <div id="volume-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
+                        <button 
+                            type="button"
+                            @click="LoadInfo('${data.symbol}')"
+                            class="w-full flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:via-indigo-700 hover:to-violet-700 active:scale-[0.98] text-white font-extrabold text-xl rounded-xl shadow-xl hover:shadow-indigo-500/50 ring-2 ring-indigo-400/30 focus:outline-none focus:ring-4 focus:ring-indigo-500 transition-all duration-200">
+                            
+                            <!-- 放大圖示 -->
+                            <svg class="w-7 h-7 text-white animate-bounce" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+
+                            <span class="tracking-wide">點擊查看公司基本面與財務資訊 (Info)</span>
+                        </button>
+                    </div>
+                    <div id="CompanyInfo" x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6"></div>
+                    
+                    `;
+
+                    
+
+                    content.innerHTML = imgHTML;
+
+                    // 1. 取得數值
+                    const changeVal = parseFloat(data.change) || 0;
+                    const isPositive = changeVal >= 0;
+                    const prefix = isPositive ? '+' : '';
+                    console.log(symbol)
+                    // 2. 更新收盤價
+                    const priceElem = document.getElementById(`price-${symbol}`);
+                    if (priceElem) {
+                    priceElem.innerText = `$${parseFloat(data.current_price).toFixed(2)}`;
+                    }
+
+                    // 3. 更新漲跌幅並套用醒目的背景與文字顏色
+                    const priceTag = document.getElementById(`priceChange-${data.symbol}`);
+                    if (priceTag) {
+                    // 自動格式化文字：如 +2.15 (+1.25%) 或 -1.80 (-0.95%)
+                    priceTag.innerText = `${prefix}${data.change} (${data.change_percent})`;
+
+                    // 根據漲跌動態設定 Tailwind class (文字顏色 + 柔和淺色背景)
+                    priceTag.className = isPositive
+                        ? 'inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold tracking-wide text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50'
+                        : 'inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold tracking-wide text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/50';
+                    }
+                    
+                    // 儲存進快取
+                    price_data_saved[symbol] = priceData
+                    dividends_saved[symbol] = dividends
+                    stockContentDict[symbol] = content.innerHTML;
+
+                    // 只顯示當前 tab（避免 race condition）
+                    if (activeTab === symbol) {
+                        contentDiv.innerHTML = content.innerHTML;
+                    }
+
+
+                    // 呼叫畫圖
+                    drawMACDChart(priceData);
+
+                    drawRSIChart(priceData);
+
+                    drawVolumeChart(priceData);
+
+                    drawCandleChart(priceData,dividends);
+
+                    
+                })
+                .catch(err => {
+                    contentDiv.innerHTML = `<p class="text-red-500">取得 ${symbol} 資料時發生錯誤</p>`;
+                });
+            }
+
+            function LoadInfo(symbol, category = '') {
+                console.log("LoadInfo")
                 
                 // 標籤樣式管理
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
@@ -292,34 +545,27 @@
                 checkAndSyncAI();
 
                 // 內容 div
-                const contentDiv = document.getElementById('tab-content');
+                const contentDiv = document.getElementById('CompanyInfo');
                 activeTab = symbol;
                 
 
-                if (stockContentDict[symbol]) {
+                if (stockInfoDict[symbol]) {
                     // 有快取就直接顯示
-                    contentDiv.innerHTML = stockContentDict[symbol];
-                    priceData = price_data_saved[symbol]
-                    dividends = dividends_saved[symbol]
+                    contentDiv.innerHTML = stockInfoDict[symbol];
                     news_list = news_saved[symbol]
                     divChart = div_chart[symbol]
-                    // 呼叫畫圖
-                    drawMACDChart(priceData);
-
-                    drawRSIChart(priceData);
-
-                    drawDividendChart(divChart)
                     
+                    drawDividendChart(divChart)
 
-                    drawVolumeChart(priceData);
-
-                    drawCandleChart(priceData,dividends);
+                    renderOwnershipPieChart(data.institutional_holders)
 
                     renderGoalTable(heatmap_goal_detail[symbol]);
                     renderDividendTable(heatmap_div_detail[symbol]);
 
 
                     renderNewsArea(news_list);
+
+                    
 
 
                     // 先全部隱藏
@@ -334,15 +580,16 @@
                     }
                    
                 } else {
+                    console.log("addOrSwitchTab>else")
                     // 還沒載入時先顯示 loading
                     contentDiv.innerHTML = `<p class="text-gray-500">載入 ${symbol} 資料中...</p>`;
-                    fetch(`/core/api/stock/${symbol}/`)
+                    fetch(`/core/api/stock/${symbol}/info/`)
                     .then(res => res.json())
                     .then(data => {
-                        console.log(data.institutional_holders);
-                        const priceData = data.price_data;
-                        const dividends = data.dividends;
-                        const content = document.getElementById('tab-content');
+                        console.log("OK")
+                        console.log(data);
+                        
+                        const content = document.getElementById('CompanyInfo');
                         // 1. 先從資料中計算加總
                         const totalBuy = data.Form4_transactions
                             .filter(s => s.transactionCode === 'P')
@@ -380,15 +627,10 @@
                             </div>
                         `;
                         const imgHTML = `
-                        <h2 class="text-xl font-bold mb-2">${data.symbol} RSI 策略分析</h2>
                         <!-- 📄 公司描述區塊 -->
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
                             <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
                                 <h3 class="text-lg font-semibold text-gray-800">📄 公司基本資料與描述</h3>
-                                <div class="flex items-center gap-2">
-                                    <span id="price-${data.symbol}"></span>
-                                    <span id="priceChange-${data.symbol}"></span>
-                                </div>
                                 <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
                             </div>
                             <div x-show="open" class="mt-4 text-gray-700">
@@ -404,82 +646,6 @@
                                     </div>
                                 </div>
                                 </div>
-                            </div>
-                        </div>
-                        <!-- 📈 技術圖表區塊 -->
-                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
-                            <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
-                                <h3 class="text-lg font-semibold text-gray-800">📈 技術圖表分析</h3>
-                                <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
-                            </div>
-                            <div x-show="open" class="mt-4 space-y-4">
-
-                                <!-- 📈 股價變動與布林通道 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">🕯️ 股價變動圖與布林通道（BBands）</h3>
-                                        <p class="text-sm text-gray-500">顯示每日股價開盤、收盤、高低點與布林通道，幫助判斷股價波動範圍與壓力支撐位置。</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-candle" class="relative w-full h-[700px] bg-white">
-                                            <div id="candle-tooltip" style="min-width: 120px; max-width: 110px; max-height: 95px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- 📈 RSI 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">📈 RSI 相對強弱指標</h3>
-                                        <p class="text-sm text-gray-500">判斷股票是否過熱（超買）或過冷（超賣）</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-rsi" class="relative w-full h-[700px] bg-white">
-                                            <div id="rsi-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- 📈 MACD 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">📉 MACD 指標</h3>
-                                        <p class="text-sm text-gray-500">結合快速線與慢速線觀察多空轉折。柱狀圖顯示多空動能變化，線條交叉通常預示可能的趨勢反轉。</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-macd" class="relative w-full h-[700px] bg-white mt-8">
-                                            <div id="macd-tooltip" style="min-width: 120px; max-width: 110px; max-height: 75px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50""></div>
-                                        </div>
-                                    </div>
-                                </div>o
-                                <!-- 📈 交易量 圖區塊 -->
-                                <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white mt-6">
-                                    <div class="flex justify-between items-center cursor-pointer mb-2" @click="open = !open">
-                                        <div>
-                                        <h3 class="text-base font-semibold text-gray-800">📊 成交量（Volume）</h3>
-                                        <p class="text-sm text-gray-500">呈現每日交易量，用來觀察市場活躍度與價量背離狀況。大量交易通常代表多空拉鋸或趨勢確認。</p>
-                                        </div>
-                                        <span x-text="open ? '－' : '＋'" class="text-xl text-gray-600"></span>
-                                    </div>
-
-                                    <div x-show="open" class="transition-all duration-200 overflow-hidden">
-                                        <div id="chart-volume" class="relative w-full h-[700px] bg-white mt-8">
-                                            <div id="volume-tooltip" style="min-width: 120px; max-width: 110px; max-height: 50px; white-space: nowrap; pointer-events: none;" class="absolute bg-white/85 text-xs text-gray-800 px-3 py-2 rounded shadow max-w-[180px] whitespace-nowrap pointer-events-none hidden z-50"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                
                             </div>
                         </div>
                         <!-- 📈 SEC分析區塊 -->
@@ -845,12 +1011,10 @@
                         content.innerHTML = imgHTML;
                         
                         // 儲存進快取
-                        price_data_saved[symbol] = priceData
-                        dividends_saved[symbol] = dividends
                         heatmap_goal_detail[symbol] = data.heatmap_goal_detail
                         heatmap_div_detail[symbol] = data.heatmap_div_detail
                         news_saved[symbol] = data.news_list
-                        stockContentDict[symbol] = content.innerHTML;
+                        stockInfoDict[symbol] = content.innerHTML;
                         div_chart[symbol] = data.div_chart
 
                         // 只顯示當前 tab（避免 race condition）
@@ -858,21 +1022,11 @@
                             contentDiv.innerHTML = content.innerHTML;
                         }
 
-                        fetchNewestClose(activeTab)
-
-                        // 呼叫畫圖
-                        drawMACDChart(priceData);
-
-                        drawRSIChart(priceData);
-
+                        
                         drawDividendChart(data.div_chart)
                         
                         renderOwnershipPieChart(data.institutional_holders)
 
-                        drawVolumeChart(priceData);
-
-                        drawCandleChart(priceData,dividends);
-                        
                         renderGoalTable(data.heatmap_goal_detail);
                         renderDividendTable(data.heatmap_div_detail);
 
@@ -900,19 +1054,9 @@
 
             function fetchNewestClose () {
                 let symbol = activeTab
-                fetch(`/core/api/stock-price/${symbol}/`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.current_price) {
-                        // 更新頁面上的價格標籤
-                        document.getElementById(`price-${symbol}`).innerHTML = `${data.current_price}`;
-                        
-                        // 根據漲跌調整顏色 (Tailwind CSS 寫法)
-                        const priceTag = document.getElementById(`priceChange-${symbol}`);
-                        priceTag.innerText = `${data.change} (${data.change_percent})`;
-                        priceTag.className = parseFloat(data.change) >= 0 ? 'text-emerald-500' : 'text-rose-500';
-                    }
-                });
+                console.log("fetchNewestClose")
+                console.log(symbol)
+                LoadTech(symbol)
             }
 
 

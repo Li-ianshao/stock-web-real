@@ -180,6 +180,69 @@ def fetch_stock_data(symbols, period='3mo', interval='1d'):
 
     return result
 
+def download_stock_data(symbols, period='3mo', interval='1d'):
+    """
+    從 yfinance 抓取多支股票的歷史價格
+    :return: {symbol: {'history': DataFrame}}
+    """
+    result = {}
+    for symbol in symbols:
+        try:
+            print(f"正在抓取 {symbol} 的資料...")
+            df = yf.download(
+                symbol,
+                period=period,
+                interval=interval,
+                actions=True,
+                auto_adjust=False
+            )
+
+            
+
+            if df.empty:
+                print(f"發現 {symbol} 無歷史資料，跳過")
+                continue
+
+            ticker = yf.Ticker(symbol)
+                    
+            # 抓取最近兩天的資料，以計算漲跌
+            # 取得最新一筆價格 (今日) 與前一筆價格 (昨日)
+            latest_price = df['Close'].iloc[-1]
+            prev_price = df['Close'].iloc[-2]
+            
+            change = latest_price - prev_price
+            change_percent = (change / prev_price) * 100
+
+            # 1. 提取純數字並轉為 float
+            if hasattr(change_percent, "iloc"):
+                val = float(change_percent.iloc[0])
+            elif hasattr(change_percent, "values"):
+                val = float(change_percent.values[0])
+            else:
+                val = float(change_percent)
+            
+            result[symbol] = {
+                'history': df,
+                "symbol": symbol.upper(),
+                "current_price": round(latest_price, 2),
+                "change": round(change, 2),
+                "change_percent": f"{val:+.2f}%",
+                "currency": "USD"
+            }
+
+            #print(result)
+
+        except Exception as e:
+            print(f"抓取 {symbol} 失敗：{e}")
+            continue
+    
+    central = pytz.timezone("America/Chicago")
+    now_ct = datetime.now(central).strftime('%Y-%m-%d %H:%M:%S')
+    with open('cache/last_updated.txt', 'w') as f:
+        f.write(now_ct)
+
+    return result
+
 
 def load_or_fetch_stock_data(symbols, period='3mo', interval='1d', cache_path=CACHE_FILE, force_reload=False):
     """
