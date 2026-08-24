@@ -514,36 +514,6 @@
 
             function LoadInfo(symbol, category = '') {
                 console.log("LoadInfo")
-                
-                // 標籤樣式管理
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active', 'bg-white', 'font-bold'));
-                let tab = document.getElementById(`tab-${symbol}`);
-                if (!tab) {
-                    // 新增 tab
-                    tabHeader = document.getElementById('tab-header');
-                    tab = document.createElement('div');
-                    tab.id = `tab-${symbol}`;
-                    tab.className = "relative tab";
-                    
-
-                    tab.innerHTML = `
-                    <button onclick="addOrSwitchTab('${symbol}')"
-                            class="px-6 py-3 text-sm font-medium rounded-t-xl rounded-b-none shadow-md border border-gray-300 border-b-0 z-10 tabBottom relative -mb-[1px]">
-                        ${symbol}
-                    </button>
-                    <button onclick="closeTab('${symbol}')"
-                            class="absolute top-0.3 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-5 text-center shadow hover:bg-red-600 z-50">
-                        ×
-                    </button>
-                    `;
-
-                    tabHeader.appendChild(tab);
-
-                }
-                tab.classList.add('active', 'bg-white', 'font-bold');
-
-                checkAndSyncAI();
-
                 // 內容 div
                 const contentDiv = document.getElementById('CompanyInfo');
                 activeTab = symbol;
@@ -649,7 +619,7 @@
                             </div>
                         </div>
                         <!-- 📈 SEC分析區塊 -->
-                        <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
+                        <!--<div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
                             <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
                                 <h3 class="text-lg font-semibold text-gray-800">📈 SEC分析</h3>
                                 <span x-text="open ? '－' : '+'" class="text-xl text-gray-600"></span>
@@ -668,7 +638,7 @@
                                     
                                 </div>
                             </div>
-                        </div>
+                        </div>-->
                         <!-- 📄 基本面分析區塊 -->
                         <div x-data="{ open: true }" class="border rounded-lg shadow p-4 bg-white">
                             <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
