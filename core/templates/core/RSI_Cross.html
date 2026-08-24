@@ -9,6 +9,7 @@
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <script>
             let activeTab = null;
+            let five_minGate = false;
             let activeTag = null;
             const stockContentDict = {};
             const stockInfoDict = {};
@@ -299,11 +300,12 @@
                 activeTab = symbol;
 
                 if (stockContentDict[symbol]) {
-                    console.log("舊")
                     // 有快取就直接顯示
                     contentDiv.innerHTML = stockContentDict[symbol];
                     priceData = price_data_saved[symbol]
                     dividends = dividends_saved[symbol]
+
+                    
                     // 呼叫畫圖
                     drawMACDChart(priceData);
 
@@ -312,10 +314,11 @@
                     drawVolumeChart(priceData);
 
                     drawCandleChart(priceData,dividends);
+                    
 
                     if (stockInfoDict[symbol]) {
-                        // 有快取就直接顯示
-
+                        // 當該股票超過五分鐘沒有更新且有快取就直接讀取快取，否則要強制更新
+                        
                         const contentInfoDiv = document.getElementById('CompanyInfo');
                         document.getElementById('getInfo').innerHTML = `點擊更新公司基本面與財務資訊`;
 
@@ -361,7 +364,6 @@
             function LoadTech(symbol){
                 // 內容 div
                 const contentDiv = document.getElementById('tab-content');
-                console.log("新")
                 // 還沒載入時先顯示 loading
                 contentDiv.innerHTML = `<p class="text-gray-500">載入 ${symbol} 資料中...</p>`;
                 fetch(`/core/api/stock/${symbol}/hist/`)
@@ -1031,6 +1033,7 @@
 
             function fetchNewestClose () {
                 let symbol = activeTab
+                stockContentDict = {};
                 console.log("fetchNewestClose")
                 console.log(symbol)
                 LoadTech(symbol)

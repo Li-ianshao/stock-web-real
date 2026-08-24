@@ -1018,7 +1018,7 @@ def stock_api(request, symbol, data_type):
         # 抓取十年配息資料並繪製成統計表
         div_chart = get_dividend_chart_base64(symbol)
 
-        print(stock_data)
+        print(stock_data[symbol])
 
         return JsonResponse({
             'symbol': symbol,
@@ -1059,19 +1059,19 @@ def stock_api(request, symbol, data_type):
             'institutional_holders': holders,  # list of dict
             'major_holders': major,       # list of {label, value}
             'Form4_transactions': Form4_transactions,
-            'sharesShort': stock_data[symbol]['info'].get('sharesShort') or stock_data['info'].get('sharesShort',"(Empty)"),
-            'shortRatio': stock_data[symbol]['info'].get('shortRatio') or stock_data['info'].get('shortRatio',"(Empty)"),
+            'sharesShort': stock_data[symbol]['info'].get('sharesShort',"(Cant find)"),
+            'shortRatio': stock_data[symbol]['info'].get('shortRatio',"(Cant find)"),
             'news_list':news_list_translated,
             'dividend_date': dividend_date,
             'exDividend_Date': exDividend_Date,
-            'website': stock_data[symbol]['info'].get('website',"(Empty)"),
-            'averageVolume': stock_data[symbol]['info'].get('averageVolume',"(Empty)"),
-            'industry': stock_data[symbol]['info'].get('industry',"(Empty)"),
+            'website': stock_data[symbol]['info'].get('website',"(Cant find)"),
+            'averageVolume': stock_data[symbol]['info'].get('averageVolume',"(Cant find)"),
+            'industry': stock_data[symbol]['info'].get('industry',"(Cant find)"),
             'event_count': len(historical_data),
-            'company_name': stock_data[symbol]['info'].get('longName') or stock_data['info'].get('shortName',"(Empty)"),
-            'sharesOutstanding': stock_data[symbol]['info'].get('sharesOutstanding') or stock_data['info'].get('sharesOutstanding',"(Empty)"),
-            'sector': stock_data[symbol]['info'].get('sector',"(Empty)"),
-            'market_cap': stock_data[symbol]['info'].get('marketCap',"(Empty)"),
+            'company_name': stock_data[symbol]['info'].get('longName') or stock_data[symbol]['info'].get('shortName',"(Cant find)"),
+            'sharesOutstanding': stock_data[symbol]['info'].get('sharesOutstanding',"(Cant find)"),
+            'sector': stock_data[symbol]['info'].get('sector',"(Cant find)"),
+            'market_cap': stock_data[symbol]['info'].get('marketCap',"(Cant find)"),
         })
 
     else:
