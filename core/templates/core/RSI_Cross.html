@@ -348,7 +348,7 @@
                             <div class="flex flex-col gap-1 p-2">
                             <div class="flex items-baseline gap-3">
                                 <!-- 目前收盤價 (加大加粗) -->
-                                <span id="price-${data.symbol}" class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+                                <span id="price-${data.symbol}" class="text-3xl font-extrabold tracking-tight dark:text-white font-mono">
                                 --
                                 </span>
 
@@ -2026,49 +2026,49 @@
                 // 解析日期的函數
                 const parseDate = d3.timeParse("%Y-%m-%d");
 
-                const aiAnalysisBox = container.append("div")
-                    .attr("id", "ai-analysis-content")
-                    .style("width", "90%")
-                    .style("max-width", "1200px")
-                    .style("background-color", "#f8fafc")
-                    .style("border", "1px solid #e2e8f0")
-                    .style("border-radius", "12px")
-                    .style("padding", "25px")
-                    .style("margin", "0 auto 40px auto")
-                    // --- 新增滾動條相關設定 ---
-                    .style("max-height", "400px")       // 設定最大高度
-                    .style("overflow-y", "auto")        // 內容超出時顯示垂直滾動條
-                    .style("scrollbar-width", "thin")   // (選填) 讓滾動條在 Firefox 下變細
-                    .style("text-align", "left");
+                // const aiAnalysisBox = container.append("div")
+                //     .attr("id", "ai-analysis-content")
+                //     .style("width", "90%")
+                //     .style("max-width", "1200px")
+                //     .style("background-color", "#f8fafc")
+                //     .style("border", "1px solid #e2e8f0")
+                //     .style("border-radius", "12px")
+                //     .style("padding", "25px")
+                //     .style("margin", "0 auto 40px auto")
+                //     // --- 新增滾動條相關設定 ---
+                //     .style("max-height", "400px")       // 設定最大高度
+                //     .style("overflow-y", "auto")        // 內容超出時顯示垂直滾動條
+                //     .style("scrollbar-width", "thin")   // (選填) 讓滾動條在 Firefox 下變細
+                //     .style("text-align", "left");
                     
 
-                    // 5. 插入初始狀態或標題
-                    aiAnalysisBox.append("h3")
-                        .style("font-size", "18px")
-                        .style("margin-top", "0")
-                        .style("margin-bottom", "12px")
-                        .style("color", "#0f172a")
-                        .html("🤖 AI 資金流向診斷報告");
+                //     // 5. 插入初始狀態或標題
+                //     aiAnalysisBox.append("h3")
+                //         .style("font-size", "18px")
+                //         .style("margin-top", "0")
+                //         .style("margin-bottom", "12px")
+                //         .style("color", "#0f172a")
+                //         .html("🤖 AI 資金流向診斷報告");
 
-                    aiAnalysisBox.append("div")
-                        .attr("id", "ai-text-target")
-                        .style("color", "#334155")
-                        .style("line-height", "1.7")
-                        .style("font-size", "15px")
-                        .html("<em>正在分析板塊動態中，請稍候...</em>"); // 預設 loading 狀態
+                //     aiAnalysisBox.append("div")
+                //         .attr("id", "ai-text-target")
+                //         .style("color", "#334155")
+                //         .style("line-height", "1.7")
+                //         .style("font-size", "15px")
+                //         .html("<em>正在分析板塊動態中，請稍候...</em>"); // 預設 loading 狀態
 
-                    const aiTarget = document.getElementById("ai-text-target");
+                //     const aiTarget = document.getElementById("ai-text-target");
 
-                    if (aiTarget) {
-                        // 注入等待動畫與文字
-                        aiTarget.innerHTML = `
-                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
-                                <div class="loading-spinner"></div>
-                                <div class="loading-text">🤖 AI 正在深入分析產業河流圖，請稍候...</div>
-                            </div>
-                        `;
+                //     if (aiTarget) {
+                //         // 注入等待動畫與文字
+                //         aiTarget.innerHTML = `
+                //             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+                //                 <div class="loading-spinner"></div>
+                //                 <div class="loading-text">🤖 AI 正在深入分析產業河流圖，請稍候...</div>
+                //             </div>
+                //         `;
                         
-                    }
+                //     }
 
 
 
@@ -3091,7 +3091,7 @@
     <body class="p-6 font-sans bg-gray-100">
 
         <h1 class="text-2xl font-bold mb-4">股票分析平台</h1>
-        <div class="fixed bottom-6 right-6 z-50">
+        <!-- <div class="fixed bottom-6 right-6 z-50">
             <button id="ai-chat-button" class="group relative flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] hover:shadow-[0_0_30px_rgba(37,99,235,0.8)] hover:bg-blue-500 transition-all duration-300 transform hover:scale-110 active:scale-95 focus:outline-none">
                 
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 transition-transform group-hover:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3102,9 +3102,9 @@
                     需要 AI 個股分析嗎？
                 </span>
             </button>
-        </div>
+        </div> -->
 
-        <div id="ai-modal" 
+        <!-- <div id="ai-modal" 
             class="fixed bottom-24 right-10 w-80 md:w-96 z-50 hidden flex-col transition-all duration-500 ease-out transform translate-y-10 opacity-0">
             
             <div class="relative bg-blue-50/95 backdrop-blur-md p-5 rounded-[28px] shadow-2xl border border-blue-100 flex flex-col justify-center">
@@ -3124,7 +3124,7 @@
                     
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <div class="flex items-start mb-12 space-x-3">
         <!-- 股票輸入 + 按鈕 -->
